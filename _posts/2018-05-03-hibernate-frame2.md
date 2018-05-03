@@ -22,7 +22,7 @@ Configuration conf = new Configuration();
 ### 加载主配置
 ``` java
 //读取指定主配置文件=>空参加载方法，加载src下的hibernate
-conf.configuration();
+conf.configure();
 ```
 ### 加载orm元数据（了解）
 ``` java
@@ -83,9 +83,21 @@ session.save(user);
 
 //2. 删除数据库列（id）
 
+//2.1 获得要删除的对象
+User user = session,get(User.class, 1l);
+//2.2 调用delete删除对象
+session.delete(user);
+
 User user = session.get(User.class,)
 
 //3. 修改数据库列（id）
+
+//3.1 获得要修改的对象
+User user = new User();
+//3.2 修改对象属性
+user.setUsername("小样");
+//3.3 执行update方法进行提交
+session.update(user);
 
 //4. 查询数据库列（id）
 
@@ -107,3 +119,139 @@ session.close();
 //释放sessionFactory资源
 sessionFactory.close();
 ```
+
+## 代码整合
+``` java
+package com.Pu1satilla.demo;
+
+import com.Pu1satilla.domain.UserEntity;
+import org.hibernate.Session;
+import org.hibernate.SessionFactory;
+import org.hibernate.Transaction;
+import org.hibernate.cfg.Configuration;
+
+public class Demo {
+    public static void main(String[] args) {
+
+        //        1.加载主配置
+        Configuration configuration = new Configuration();
+        configuration.configure();
+
+        //        2.创建sessionFactory
+        SessionFactory sessionFactory = configuration.buildSessionFactory();
+
+        //        3.获取session连接数据库会话对象
+        Session session = sessionFactory.openSession();
+
+        //        4.获取操作事务对象并开启
+        Transaction transaction = session.beginTransaction();
+
+        //        5.hibernate操作数据库
+        UserEntity userEntity = new UserEntity();
+        userEntity.setUsername("小明");
+        userEntity.setPassword(":");
+        userEntity.setUid(1);
+        session.save(userEntity);
+        Object o = session.get(UserEntity.class, 1);
+        System.out.println(o);
+
+        //        6.提交事务，释放资源
+        transaction.commit();
+        session.close();
+        sessionFactory.close();
+    }
+}
+```
+
+## 抽取代码（HibernateUtils）
+
+``` java
+package com.Pu1satilla.utils;
+
+import com.Pu1satilla.domain.UserEntity;
+import org.hibernate.Session;
+import org.hibernate.SessionFactory;
+import org.hibernate.Transaction;
+import org.hibernate.cfg.Configuration;
+
+/**
+ * 工具类，抽取hibernate常用Api，简化编写代码
+ */
+public class HibernateUtils {
+
+    private static SessionFactory sessionFactory;
+
+    static {
+        Configuration configure = new Configuration().configure();
+        ServiceRegistry registry = new ServiceRegistryBuilder().applySettings(configure.getProperties()).buildServiceRegistry();
+        sessionFactory = configure.buildSessionFactory(registry);
+    }
+
+    /**
+     * @return 连接数据库会话对象
+     */
+    public static Session getSession() {
+        return sessionFactory.openSession();
+    }
+
+    /*demo
+    public static void main(String[] args) {
+
+        //        1.建立与数据库表映射对象
+        UserEntity userEntity = new UserEntity();
+        userEntity.setUsername("小花");
+        userEntity.setUid(1);
+
+        //        2.通过工具类获取session对象
+        Session session = HibernateUtils.getSession();
+
+        //        3.获取事务并提交
+        Transaction transaction = session.beginTransaction();
+
+        //        4.执行hibernate语句
+        session.save(userEntity);
+        System.out.println(session.get(UserEntity.class, 1));
+
+        //        5.事务提交
+        transaction.commit();
+
+        //        6.释放资源
+        session.close();
+        sessionFactory.close();
+    }
+    */
+}
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

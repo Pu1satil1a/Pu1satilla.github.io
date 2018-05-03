@@ -60,6 +60,11 @@ tags: [Web, Java, Hibernate]
 
 # 主配置文件
 ## 必选属性配置（5个）
+
+## xml文件
+- 位置：src文件下
+- 命名：hibernate.cfg.xml
+
 数据库驱动
 ``` xml 
 <!--数据库驱动-->
@@ -68,8 +73,11 @@ tags: [Web, Java, Hibernate]
 数据库url
 ``` xml 
 <!--数据库url-->
+<!-- jdbc:mysql://localhost:3306/customer?useUnicode=true&characterEncoding=utf8-->
 <property name="connection.url">jdbc:mysql://localhost:3306</property>
 ```
+最好按照注释格式配置，否则容易出现没有配置数据库或者乱码问题
+
 数据库连接用户名
 ``` xml 
 <!--数据库连接用户名-->
@@ -125,7 +133,7 @@ hibernate.hbm2ddl.auto validate     校验，不自动生成表，每次启动�
     <session-factory>
         <!--必选-->
         <!--数据库url-->
-        <property name="connection.url">jdbc:mysql://localhost:3306</property>
+        <property name="connection.url">jdbc:mysql://localhost:3306useUnicode=true&amp;characterEncoding=utf-8</property>
         <!--数据库驱动-->
         <property name="connection.driver_class">com.mysql.jdbc.Driver</property>
         <!--数据库连接用户名-->
@@ -157,6 +165,10 @@ hibernate.hbm2ddl.auto validate     校验，不自动生成表，每次启动�
 </hibernate-configuration>
 ```
 # orm元数据
+
+## xml文件
+- 位置：实体包（domain）下
+- 命名：JavaBean.hbm.xml
 
 ## 根元素
 ``` xml
@@ -198,44 +210,46 @@ length（可选）：配置数据库中列的长度，默认值：使用数据�
 <property name="state" column="state"/>
 ```
 ## 整合
-``` xml
-<?xml version='1.0' encoding='utf-8'?>
-<!DOCTYPE hibernate-mapping PUBLIC
-        "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
-        "http://www.hibernate.org/dtd/hibernate-mapping-3.0.dtd">
-		
-<!--根元素：配置表与实体对象的关系-->
-<!--package属性：填写一个包名，在元素内部凡是需要书写完整类名的属性，可以直接写简单类名-->
-<hibernate-mapping package="com.Pu1satilla.domain">
+``` xml<?xml version='1.0' encoding='utf-8'?>
+<!DOCTYPE hibernate-configuration PUBLIC
+        "-//Hibernate/Hibernate Configuration DTD//EN"
+        "http://www.hibernate.org/dtd/hibernate-configuration-3.0.dtd">
+<hibernate-configuration>
+    <session-factory>
+        <!--必选-->
+        <!--数据库url-->
+        <property name="connection.url">jdbc:mysql://localhost:3306?useUnicode=true&amp;characterEncoding=utf-8
+        </property>
+        <!--数据库驱动-->
+        <property name="connection.driver_class">com.mysql.jdbc.Driver</property>
+        <!--数据库连接用户名-->
+        <property name="connection.username">root</property>
+        <!--数据库连接密码-->
+        <property name="connection.password">feng8375</property>
+        <!--数据库方言-->
+        <property name="hibernate.dialect">org.hibernate.dialect.MySQLDialect</property>
 
-    <!--class元素：配置实体与表的对应关系，name：完整类名，table：数据库表名，schema：数据库名-->
-    <class name="com.Pu1satilla.domain.UserEntity" table="user" schema="book_store">
-	
-        <!--id配置主键映射属性，
-        name填写主键对应属性，
-        column填写表中主键列名（可选），填写表中主键名，不填列名会默认使用属性名，
-        type（可选）：填写列（属性）的类型，hibernate会自动检测实体的属性类型，
-            每个类型有三种填法（建议不填）：java类型|hibernate类型|数据库类型
-        not-null（可选）：配置该属性（列）是否不能为空，默认值为false，
-        length（可选）：配置数据库中列的长度，默认值：使用数据库类型的最大长度
+        <!--可选-->
+        <!--将hibernate生成的sql语句打印到控制台-->
+        <property name="hibernate.show_sql">true</property>
+        <!--将hibernate生成的sql语句格式化（自动缩进）-->
+        <property name="hibernate.format_sql">true</property>
+        
+        <!--自动导出表结构
+        hibernate.hbm2ddl.auto create       自动建表，每次框架运行都会创建新的表，以前表将会被覆盖，表数据会丢失（开发环境中测试使用）
+        hibernate.hbm2ddl.auto create-drop  自动建表并且删除，每次框架运行都会创建新的表，运行结束都会讲所有表删除（开发环境中测试使用）
+        hibernate.hbm2ddl.auto update       自动生成表，如果已经存在，不会再生成，如果表变动，会自动更新表（不会删除任何数据，新的属性会创建新列）
+        hibernate.hbm2ddl.auto validate     校验，不自动生成表，每次启动会校验数据库表是否正确，校验失败（抛出SchemaManagementException异常）
         -->
-        <id name="uid" column="uid"/>
-		
-        <!--property配置除id外普通属性映射，
-        name填写属性，
-        column填写表中列名（可选），填写表中主键名，不填列名会默认使用属性名，
-        type（可选）：填写列（属性）的类型，hibernate会自动检测实体的属性类型，
-            每个类型有三种填法（建议不填）：java类型|hibernate类型|数据库类型
-        not-null（可选）：配置该属性（列）是否不能为空，默认值为false，
-        length（可选）：配置数据库中列的长度，默认值：使用数据库类型的最大长度
+        <property name="hibernate.hbm2ddl.auto">update</property>
+
+        <!--引入orm元数据
+            路径:src下的路径
         -->
-        <property name="username" column="username"/>
-        <property name="password" column="password"/>
-        <property name="email" column="email"/>
-        <property name="code" column="code"/>
-        <property name="state" column="state"/>
-    </class>
-</hibernate-mapping>
+        <mapping resource="com/Pu1satilla/domain/Customer.hbm.xml"/>
+        <mapping class="com.Pu1satilla.domain.Customer"/>
+    </session-factory>
+</hibernate-configuration>
 ```
 
 
