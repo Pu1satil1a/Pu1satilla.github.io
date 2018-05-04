@@ -139,7 +139,7 @@ hibernate.hbm2ddl.auto validate     校验，不自动生成表，每次启动�
         <!--数据库连接用户名-->
         <property name="connection.username">root</property>
         <!--数据库连接密码-->
-        <property name="connection.password">feng8375</property>
+        <property name="connection.password">pwd</property>
         <!--数据库方言-->
         <property name="hibernate.dialect">org.hibernate.dialect.MySQLDialect</property>
 
@@ -193,6 +193,27 @@ length（可选）：配置数据库中列的长度，默认值：使用数据�
 -->
 <id name="uid" column="uid"/>
 ```
+
+## 主键生成策略
+
+``` xml
+<id name="cid" column="cid">
+
+	<!--generator：主键生成策略，就是每条记录录入时，主键的生成规则（7个），
+		class>>>>规则（7个）：
+		identity：主键自增，有数据库来维护主键值，录入时不需要指定主键
+		increment（了解）：主键自增，由hibernate来维护，每次插入前会先查询表中id最大值+1作为新主键值（类似identity，不推荐，线程安全问题）
+		sequence：Oracle中的主键生成策略
+		hilo：（了解）高低位算法，由hibernate来维护
+		native：hilo+sequence+identity 自动三选一策略（推荐）
+		uuid：产生随机字符串作为主键（String）
+		assigned：自然主键生成策略，hibernate不会管理主键，由开发人员自己录入
+		-->
+
+	<generator class="native"/>
+</id>
+```
+
 ## property元素
 ``` xml
 <!--property配置除id外普通属性映射，
@@ -210,46 +231,59 @@ length（可选）：配置数据库中列的长度，默认值：使用数据�
 <property name="state" column="state"/>
 ```
 ## 整合
-``` xml<?xml version='1.0' encoding='utf-8'?>
-<!DOCTYPE hibernate-configuration PUBLIC
-        "-//Hibernate/Hibernate Configuration DTD//EN"
-        "http://www.hibernate.org/dtd/hibernate-configuration-3.0.dtd">
-<hibernate-configuration>
-    <session-factory>
-        <!--必选-->
-        <!--数据库url-->
-        <property name="connection.url">jdbc:mysql://localhost:3306?useUnicode=true&amp;characterEncoding=utf-8
-        </property>
-        <!--数据库驱动-->
-        <property name="connection.driver_class">com.mysql.jdbc.Driver</property>
-        <!--数据库连接用户名-->
-        <property name="connection.username">root</property>
-        <!--数据库连接密码-->
-        <property name="connection.password">feng8375</property>
-        <!--数据库方言-->
-        <property name="hibernate.dialect">org.hibernate.dialect.MySQLDialect</property>
+``` xml
+<?xml version='1.0' encoding='utf-8'?>
+<!DOCTYPE hibernate-mapping PUBLIC
+        "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
+        "http://www.hibernate.org/dtd/hibernate-mapping-3.0.dtd">
 
-        <!--可选-->
-        <!--将hibernate生成的sql语句打印到控制台-->
-        <property name="hibernate.show_sql">true</property>
-        <!--将hibernate生成的sql语句格式化（自动缩进）-->
-        <property name="hibernate.format_sql">true</property>
-        
-        <!--自动导出表结构
-        hibernate.hbm2ddl.auto create       自动建表，每次框架运行都会创建新的表，以前表将会被覆盖，表数据会丢失（开发环境中测试使用）
-        hibernate.hbm2ddl.auto create-drop  自动建表并且删除，每次框架运行都会创建新的表，运行结束都会讲所有表删除（开发环境中测试使用）
-        hibernate.hbm2ddl.auto update       自动生成表，如果已经存在，不会再生成，如果表变动，会自动更新表（不会删除任何数据，新的属性会创建新列）
-        hibernate.hbm2ddl.auto validate     校验，不自动生成表，每次启动会校验数据库表是否正确，校验失败（抛出SchemaManagementException异常）
-        -->
-        <property name="hibernate.hbm2ddl.auto">update</property>
+<!--配置表与实体对象的关系-->
+<!--package属性：填写一个包名，在元素内部凡是需要书写完整类名的属性，可以直接写简单类名-->
+<hibernate-mapping package="com.Pu1satilla.domain">
 
-        <!--引入orm元数据
-            路径:src下的路径
+    <!--配置实体与表的对应关系，name：完整类名，table：数据库表名，schema：数据库名-->
+    <class name="com.Pu1satilla.domain.Customer" table="customer" schema="customer">
+
+        <!--id配置主键映射属性，
+        name填写主键对应属性，
+        column填写表中主键列名（可选），填写表中主键名，不填列名会默认使用属性名，
+        type（可选）：填写列（属性）的类型，hibernate会自动检测实体的属性类型，
+            每个类型有三种填法（建议不填）：java类型|hibernate类型|数据库类型
+        not-null（可选）：配置该属性（列）是否不能为空，默认值为false，
+        length（可选）：配置数据库中列的长度，默认值：使用数据库类型的最大长度
         -->
-        <mapping resource="com/Pu1satilla/domain/Customer.hbm.xml"/>
-        <mapping class="com.Pu1satilla.domain.Customer"/>
-    </session-factory>
-</hibernate-configuration>
+        <id name="cid" column="cid">
+
+            <!--generator：主键生成策略，就是每条记录录入时，主键的生成规则（7个），
+                class>>>>规则（7个）：
+                identity：主键自增，有数据库来维护主键值，录入时不需要指定主键
+                increment（了解）：主键自增，由hibernate来维护，每次插入前会先查询表中id最大值+1作为新主键值（类似identity，不推荐，线程安全问题）
+                sequence：Oracle中的主键生成策略
+                hilo：（了解）高低位算法，由hibernate来维护
+                native：hilo+sequence+identity 自动三选一策略（推荐）
+                uuid：产生随机字符串作为主键（String）
+                assigned：自然主键生成策略，hibernate不会管理主键，由开发人员自己录入
+                -->
+
+            <generator class="native"/>
+        </id>
+
+        <!--property配置除id外普通属性映射，
+        name填写属性，
+        column填写表中列名（可选），填写表中主键名，不填列名会默认使用属性名，
+        type（可选）：填写列（属性）的类型，hibernate会自动检测实体的属性类型，
+            每个类型有三种填法（建议不填）：java类型|hibernate类型|数据库类型
+        not-null（可选）：配置该属性（列）是否不能为空，默认值为false，
+        length（可选）：配置数据库中列的长度，默认值：使用数据库类型的最大长度
+        -->
+        <property name="cust_name" column="cust_name"/>
+        <property name="cust_level" column="cust_level"/>
+        <property name="cust_source" column="cust_source"/>
+        <property name="cust_linkman" column="cust_linkman"/>
+        <property name="cust_phone" column="cust_phone"/>
+        <property name="cust_mobile" column="cust_mobile"/>
+    </class>
+</hibernate-mapping>
 ```
 
 
