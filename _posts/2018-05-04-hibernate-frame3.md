@@ -1,6 +1,6 @@
 ---
 title: Hibernate(三)
-description: hibernate实体创建规则，hibernate对象状态，hibernate一级缓存以及hibernate事务控制
+description: hibernate实体创建规则，hibernate对象状态，hibernate一级缓存
 categories:
  - Web
  - Java
@@ -144,7 +144,7 @@ public void demo2() {
 	session.close();
 }
 ```
-结果：
+**结果：**  
 ```
 Hibernate: 
     select
@@ -161,10 +161,99 @@ Hibernate:
         customer0_.cid=?
 true 
 ```
-过程：
+**过程：**  
 ![](/assets/images/hibernate/cache02.png)
 
 ### 减少修改语句发送
+
+**试验一：不改变对象属性，查看控制台**  
+``` java
+@Test
+public void demo3() {
+	Session session = HibernateUtils.getSession();
+	Transaction transaction = session.beginTransaction();
+
+	//        获得持久化状态对象
+	Customer customer = (Customer) session.get(Customer.class,1);
+
+	//        不改变对象属性存储
+	session.save(customer);
+	transaction.commit();
+	session.close();
+}
+```
+**结果：只进行查询，没有将语句进行发送**  
+```
+Hibernate: 
+    select
+        customer0_.cid as cid0_0_,
+        customer0_.cust_name as cust2_0_0_,
+        customer0_.cust_level as cust3_0_0_,
+        customer0_.cust_source as cust4_0_0_,
+        customer0_.cust_linkman as cust5_0_0_,
+        customer0_.cust_phone as cust6_0_0_,
+        customer0_.cust_mobile as cust7_0_0_ 
+    from
+        customer.customer customer0_ 
+    where
+        customer0_.cid=?
+```
+
+**试验二：改变对象属性，但是不进行sava()操作**  
+``` java
+@Test
+public void demo1() {
+	Session session = HibernateUtils.getSession();
+	Transaction transaction = session.beginTransaction();
+
+	//        获得持久化状态对象
+	Customer customer = (Customer) session.get(Customer.class, 1);
+	customer.setCust_name("村上");
+
+	//        不通过update方法就可以更新
+	transaction.commit();
+	session.close();
+}
+```
+**结果：进行语句查询，并且发送更新sql语句**   
+```
+Hibernate: 
+    select
+        customer0_.cid as cid0_0_,
+        customer0_.cust_name as cust2_0_0_,
+        customer0_.cust_level as cust3_0_0_,
+        customer0_.cust_source as cust4_0_0_,
+        customer0_.cust_linkman as cust5_0_0_,
+        customer0_.cust_phone as cust6_0_0_,
+        customer0_.cust_mobile as cust7_0_0_ 
+    from
+        customer.customer customer0_ 
+    where
+        customer0_.cid=?
+Hibernate: 
+    update
+        customer.customer 
+    set
+        cust_name=?,
+        cust_level=?,
+        cust_source=?,
+        cust_linkman=?,
+        cust_phone=?,
+        cust_mobile=? 
+    where
+        cid=?
+```
+**过程：**  
+![](/assets/images/hibernate/cache03.png)
+
+
+
+
+
+
+
+
+
 
 
 
