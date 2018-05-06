@@ -127,6 +127,222 @@ public class HibernateUtils {
 }
 ```
 
+# hibernate批量查询
+
+## HQL查询
+### 概念以及适用情况
+Hibernate独家查询语言，属于面向对象的查询语言，适用于多表查询，但是不复杂时查询
+
+### 基本查询
+``` java
+//        1.书写HQL语句，当源码包中类名唯一，可以只输类名
+//        String Hql = "FROM cn.Pu1satilla.domain.Customer";
+String hql = "FROM Customer";
+
+//        2.根据Hql语句创建查询对象
+Query query = session.createQuery(hql);
+
+//        3.根据查询对象获取查询结果（接收唯一的查询结果：query.uniqueResult();）
+List list = query.list();
+```
+### 条件查询
+#### ?号占位符
+类似于sql语句中的？号占位符
+``` java
+//        1.书写HQL语句
+String hql = "FROM Customer WHERE cid=?";
+
+//        2.创建查询对象
+Query query = session.createQuery(hql);
+
+//        3.设置占位符内容
+query.setParameter(0, 1);
+
+//        4.根据查询对象获取查询结果
+Customer customer = (Customer) query.uniqueResult();
+```
+
+#### 命名占位符
+将问号代替成:name，那么设置参数的时候对应的就是hql语句在设定的那个名称
+``` java
+//        1.书写HQL语句
+String hql = "FROM Customer WHERE cust_name = :second_name";
+
+//        2.创建查询对象
+Query query = session.createQuery(hql);
+
+//        3.设置占位符内容
+query.setParameter("second_name", "村上");
+Customer customer = (Customer) query.uniqueResult();
+```
+
+### 分页查询
+类似于sql语句中limit ?,?  
+
+	第一个?对应query.setFirstResult(); 第二个?对应query.setMaxResults();
+	
+``` java
+//        1.书写HQL语句
+String hql = "FROM Customer";
+
+//        2.创建查询对象
+Query query = session.createQuery(hql);
+
+//        3.设置分页情况
+query.setFirstResult(0);
+query.setMaxResults(2);
+
+//        4.获取查询内容
+List list = query.list();
+System.out.println(Arrays.toString(list.toArray()));
+```
+
+## Criteria查询
+### 概念以及适用情况
+Hibernate自创的无语局面向对象查询，适用于单表条件查询
+
+### 基本查询
+``` java
+//        查询所有的Customer对象
+Criteria criteria = session.createCriteria(Customer.class);
+List list = criteria.list();
+```
+
+### 条件查询
+条件查询对应方法
+```
+>	gt 
+>=	ge
+<	lt
+<=	le
+==	eq
+!=	ne
+in	in
+between and	between
+like		like
+is not null	isNotNull
+is null		isNull
+or		or
+and		and
+```
+
+``` java
+//        1.创建Criteria查询对象
+Criteria criteria = session.createCriteria(Customer.class);
+
+//        2.添加查询参数 => 查询cid>1的Customer对象
+criteria.add(Restrictions.gt("cid", 1));
+
+//        3.执行查询获得结果
+Customer customer = (Customer) criteria.uniqueResult();
+System.out.println(customer);
+```
+
+### 分页查询
+``` java
+//        1.创建Criteria查询对象
+Criteria criteria = session.createCriteria(Customer.class);
+
+//        2.分页设置
+criteria.setFirstResult(0);
+criteria.setMaxResults(2);
+
+//        3.获取查询结果
+List list = criteria.list();
+```
+
+## Sql语句查询
+
+### 适用情况
+适用于复杂的业务查询
+
+### 基本查询
+
+#### 返回数组List
+``` java
+//        1.书写sql语句
+String sql = "SELECT * FROM Customer";
+
+//        2.创建sql查询对象
+SQLQuery sqlQuery = session.createSQLQuery(sql);
+
+//        3.执行查询获得结果 => 获得数组list集合
+List<Object[]> list = sqlQuery.list();
+for (Object[] objects : list) {
+	System.out.println(Arrays.toString(objects));
+}
+```
+查询结果：  
+```
+Hibernate: 
+    SELECT
+        * 
+    FROM
+        Customer
+[1, 村上, vip, 百度, 546, 4848, 56464545646]
+[2, 马彦宏, 农民, 澡堂, 1001, 4848, 56]
+```
+#### 返回对象List
+``` java
+//        1.书写sql语句
+String sql = "SELECT * FROM Customer";
+
+//        2.获取sql查询对象
+SQLQuery sqlQuery = session.createSQLQuery(sql);
+
+//        指定结果集封装到某个对象
+sqlQuery.addEntity(Customer.class);
+
+//        3.执行查询获得结果 => 获得对象集合
+List list = sqlQuery.list();
+```
+查询结果：  
+```
+Hibernate: 
+    SELECT
+        * 
+    FROM
+        Customer
+[Customer{cid=1, cust_name='村上', cust_level='vip', cust_source='百度', cust_linkman='546', cust_phone=4848, cust_mobile=56464545646}, Customer{cid=2, cust_name='马彦宏', cust_level='农民', cust_source='澡堂', cust_linkman='1001', cust_phone=4848, cust_mobile=56}]
+```
+
+### 条件查询
+``` java
+//        1.书写sql语句
+String sql = "SELECT * FROM Customer WHERE cid=?";
+
+//        2.创建sql查询对象
+SQLQuery sqlQuery = session.createSQLQuery(sql);
+
+//        3.给sql语句添加占位符信息
+sqlQuery.setParameter(0, 1);
+
+//        指定结果集封装到某个对象
+sqlQuery.addEntity(Customer.class);
+
+//        4.执行查询获得结果
+Customer customer = (Customer) sqlQuery.uniqueResult();
+```
+
+### 分页查询
+``` java
+//        1.书写sql语句
+String sql = "SELECT * FROM Customer LIMIT ?,?";
+
+//        2.创建sql查询对象
+SQLQuery sqlQuery = session.createSQLQuery(sql);
+
+//        3.给sql语句添加占位符信息
+sqlQuery.setParameter(0, 1);
+sqlQuery.setParameter(1, 1);
+
+//        指定将结果集封装到某个对象
+sqlQuery.addEntity(Customer.class);
+
+//        4.执行查询获得查询结果
+Customer customer = (Customer) sqlQuery.uniqueResult();
+```
+
 
 
 
