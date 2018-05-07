@@ -146,6 +146,7 @@ Query query = session.createQuery(hql);
 List list = query.list();
 ```
 ### 条件查询
+
 #### ?号占位符
 类似于sql语句中的？号占位符
 ``` java
@@ -198,6 +199,7 @@ System.out.println(Arrays.toString(list.toArray()));
 ```
 
 ## Criteria查询
+
 ### 概念以及适用情况
 Hibernate自创的无语局面向对象查询，适用于单表条件查询
 
