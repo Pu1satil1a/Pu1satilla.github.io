@@ -9,7 +9,7 @@ tags: [Web, Java, Hibernate, MySQL, 多表]
 ---
 
 
-# 一对多|多对一关系表
+# 一对多|多对一关系
 
 ## 关系表达
 
@@ -44,6 +44,12 @@ tags: [Web, Java, Hibernate, MySQL, 多表]
 	class属性：与我关联的实体类名
 -->
 <many-to-one name="customer" class="Customer" column="toucherLinkId"/>
+```
+
+将映射添加到主配置文件
+``` xml
+<mapping resource="cn/Pu1satilla/domain/Toucher.hbx.xml"/>
+<mapping class="cn.Pu1satilla.domain.Toucher"/>
 ```
 
 ## Hibernate操作
@@ -169,7 +175,7 @@ public void demo3() {
 
 ### 级联操作
 
-级联，就是对一个对象进行操作的时候，会把他相关联的对象也一并进行相应的操作，相关联的对象意思是指 比如前两节学的一对多关系中，班级跟学生，Student的实体类中，存在着Classes对象的引用变量，如果保存Classes对象的引用变量有值的话，则该值就是相关联的对象，并且在对student进行save时，如果保存Classes对象的引用变量有值，那么就会将Classes对象也进行save操作， 这个就是级联的作用。
+级联操作是指当主控方执行保存、更新或者删除操作时，其关联对象（被控方）也执行相同的操作。在映射文件中通过对cascade属性的设置来控制是否对关联对象采用级联操作，级联操作对各种关联关系都是有效的。
 
 #### 级联保存更新
 主表配置
@@ -192,9 +198,9 @@ public void demo3() {
 </set>
 ```
 
-`cascade="save-update"`在相关联的属性设置级联，表示该实体类对象如果在`save`、`update`或者`saveOrUpdate`操作时，会将这个相关联的对象进行相同操作，不需要手动书写代码。
+`cascade="save-update"`在相关联的属性设置级联，表示该实体类对象如果在`save`、`update`或者`saveOrUpdate`操作时，会将这个相关联的对象进行相同操作，不需要手动书写代码。主表进行配置`cascade`属性，可以控制相关联从表对象，从表配置`cascade`属性，可以控制相关联主表属性。
 
-测试用例
+测试用例（主表控制从表）
 ``` java
 /**
  * 测试级联操作（级联保存更新）
@@ -292,13 +298,135 @@ public void demo5() {
 ```
 测试结果：主表对象条目对象被删除，与其相关联从表对象条目同时被删除。
 
+### 关系维护
 
+双向关联产生的多余SQL语句
 
+#### 测试用例
+``` java
+@Test
+public void demo6(){
+	//        1.获得session对象
+	Session session = HibernateUtils.getSession();
 
+	//        2.开启事务
+	Transaction transaction = session.beginTransaction();
 
+	//        3.建立一个客户，创建两个联系人
+	Customer customer = new Customer();
+	customer.setCust_name("张三");
 
+	Toucher toucher0 = new Toucher();
+	Toucher toucher1 = new Toucher();
+	toucher0.setTname("李四");
+	toucher1.setTname("王五");
 
+	//        建立关系
+	toucher0.setCustomer(customer);
+	toucher1.setCustomer(customer);
+	customer.getToucherSet().add(toucher0);
+	customer.getToucherSet().add(toucher1);
 
+	//        级联保存联系人
+	session.save(customer);	//因为在配置文件配置了主键自增（generator：native）以及级联保存（cascade=“save-update”）
+										//Hibernate将customer、toucher0、toucher1持久化
+
+	//        4.提交事务
+	transaction.commit();
+
+	//        5.释放资源
+	session.close();
+}
+```
+#### 控制台结果
+```
+Hibernate: 
+    insert 
+    into
+        customer.customer
+        (cust_name, cust_level, cust_source, cust_linkman, cust_phone, cust_mobile) 
+    values
+        (?, ?, ?, ?, ?, ?)
+Hibernate: 
+    insert 
+    into
+        customer.toucher
+        (tname, toffice_phone, tpersoner_phone, tsex, toucherLinkId) 
+    values
+        (?, ?, ?, ?, ?)
+Hibernate: 
+    insert 
+    into
+        customer.toucher
+        (tname, toffice_phone, tpersoner_phone, tsex, toucherLinkId) //在联系人插入时维护过一次外键（由从表对象联系人维护）
+    values
+        (?, ?, ?, ?, ?)
+Hibernate: 
+    update
+        customer.toucher 
+    set
+        toucherLinkId=? //在客户更新时再次维护外键（由主表对象客户进行维护）
+    where
+        tid=?
+Hibernate: 
+    update
+        customer.toucher 
+    set
+        toucherLinkId=? 
+    where
+        tid=? 
+```
+发现在insert语句就修改了外键的操作，在后续update操作又进行了一次，其中有一次就多余了。原因是在联系人插入时已经维护了一次外键而在客户更新又维护了一次外键。
+
+通过放弃一方维护权避免两次维护外键内容（一的一方放弃外键的维护权）。
+
+#### 配置
+``` xml
+<!--
+	name属性：set集合属性名
+	colum属性：外键列名，自定义
+	class属性：与我关联的对象完整类名
+
+	级联保存：（不需要代码操作，减少代码量）
+	cascade
+	save-update：级联保存更新
+	delete：级联删除
+	all：sava-update+delete
+
+	关系维护：（一的一方放弃关系维护）
+	inverse属性：放弃关系维护属性 true表示放弃，默认为false
+-->
+<set name="toucherSet" inverse="true">
+	<key column="toucherLinkId"/>
+	<one-to-many class="Toucher"/>
+</set>
+```
+#### 再次测试
+再次运行测试用例，查看控制台：
+``` 
+Hibernate: 
+    insert 
+    into
+        customer.customer
+        (cust_name, cust_level, cust_source, cust_linkman, cust_phone, cust_mobile) 
+    values
+        (?, ?, ?, ?, ?, ?)
+Hibernate: 
+    insert 
+    into
+        customer.toucher
+        (tname, toffice_phone, tpersoner_phone, tsex, toucherLinkId) 
+    values
+        (?, ?, ?, ?, ?)
+Hibernate: 
+    insert 
+    into
+        customer.toucher
+        (tname, toffice_phone, tpersoner_phone, tsex, toucherLinkId) 
+    values
+        (?, ?, ?, ?, ?)
+```
+发现由主表放弃了外键的维护权，没有进行外键的`update`操作。
 
 
 
