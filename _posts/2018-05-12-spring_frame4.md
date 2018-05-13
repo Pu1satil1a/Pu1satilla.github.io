@@ -196,16 +196,91 @@ Joinpoint（连接点）：目标对象中，所有可以增强的方法
 Pointcut（切入点）：目标对象，增强的方法
 Advice（通知/增强）：增强的代码
 Target（目标对象）：被代理对象
-Weaving（植入）：将通知应用到切入点的过程
+Weaving（织入）：将通知应用到切入点的过程
 Proxy（代理）：将通知植入到目标对象之后，形成代理对象
 aspect（切面）：切入点+通知
 ```
 
 # Aop配置以及应用
 
-## AOP配置
+## AOP配置（XML）
 
-### AOP表达式
+### 导包
+![](/assets/images/Spring/aop_configuration.PNG)
+
+### 目标对象类
+``` java
+package cn.Pu1satilla.AOP;
+
+import org.springframework.stereotype.Component;
+
+@Component("cat")
+
+public class Cat implements Animal {
+
+    @Override
+    public void speak() {
+        System.out.println("喵喵喵");
+    }
+
+    @Override
+    public void eat(String animal) {
+        System.out.println("猫吃" + animal);
+    }
+
+    @Override
+    public void run() {
+        System.out.println("猫追耗子");
+    }
+
+    @Override
+    public void shit() {
+        System.out.println("猫也拉屎");
+        int i = 1 / 0;
+    }
+}
+```
+
+### 通知类
+``` xml
+package cn.Pu1satilla.AOP;
+
+import org.aspectj.lang.ProceedingJoinPoint;
+
+public class AopAdvice {
+
+    //    前置通知
+    public void before(){
+         System.out.println("前置增强=============");
+    }
+
+    //    后置通知
+    public void afterReturning(){
+        System.out.println("运行后增强=============（出现异常不会调用）");
+    }
+
+    //    环绕通知
+    public Object around(ProceedingJoinPoint pjd) throws Throwable {
+
+        System.out.println("环绕增强前部分=============");
+        Object proceed = pjd.proceed();
+        System.out.println("环绕增强后部分=============");
+        return proceed;
+    }
+
+    //    异常通知
+    public void afterException() {
+        System.out.println("出现异常=============");
+    }
+
+    //    后置通知
+    public void after(){
+        System.out.println("运行后增强=============（出现异常也会调用）");
+    }
+}
+```
+
+### AOP表达式(配置)
 
 ``` xml
 execution(* com.sample.service.impl..*.*(..))
@@ -222,43 +297,293 @@ com.sample.service.impl 	|AOP所切的服务的包名，即，我们的业务部
 第二个”*“ 	|表示类名，*即所有类。此处可以自定义，下文有举例
 .*(..) 	|表示任何方法名，括号表示参数，两个点表示任何参数类型
 
+### 配置
 
+**设置使用Cglib作为spring的aop代理**
+``` xml
+<aop:aspectj-autoproxy proxy-target-class="true"/>
+```
 
+**配置通知对象（增强方法的对象）**
+``` xml
+<!--配置通知对象-->
+<bean name="AopAdvice" class="cn.Pu1satilla.AOP.AopAdvice"/>
+```
 
+**AOP切面配置**
+``` xml
+<!--配置切面-->
+<aop:aspect ref="AopAdvice">
+	<!--将名为AopAdvice的前置通知织入到名为strength的切入点-->
+	<aop:before method="before" pointcut-ref="strength"/>
+	<!--将名为AopAdvice的环绕通知织入到名为strength的切入点-->
+	<aop:around method="around" pointcut-ref="strength"/>
+	<!--将名为AopAdvice的后置通知（出现异常不会调用）织入到名为strength的切入点-->
+	<aop:after-returning method="afterReturning" pointcut-ref="strength"/>
+	<!--将名为AopAdvice的异常通知织入到名为strength的切入点-->
+	<aop:after-throwing method="afterException" pointcut-ref="strength"/>
+	<!--将名为AopAdvice的后置通知织入到名为strength的切入点-->
+	<aop:after method="after" pointcut-ref="strength"/>
+</aop:aspect>
+```
 
+**整合**
+``` xml
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:aop="http://www.springframework.org/schema/aop"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
+                           http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context.xsd http://www.springframework.org/schema/aop http://www.springframework.org/schema/aop/spring-aop.xsd">
 
+    <!--activities annotation-->
+    <context:annotation-config/>
 
+    <!--扫描指定包-->
+    <context:component-scan base-package="cn.Pu1satilla.AOP cn.Pu1satilla.domain"/>
 
+    <!--配置通知对象-->
+    <bean name="AopAdvice" class="cn.Pu1satilla.AOP.AopAdvice"/>
 
+    <!--指定spring的代理为Cglib-->
+    <aop:aspectj-autoproxy proxy-target-class="true"/>
 
+    <!--进行aop配置-->
+    <aop:config>
 
+        <!--配置切入点表达式：哪些类的哪些方法需要进行增强-->
+        <aop:pointcut id="strength" expression="execution(* cn.Pu1satilla.AOP.Cat.*(..))"/>
 
+        <!--配置切面-->
+        <aop:aspect ref="AopAdvice">
+            <!--将名为AopAdvice的前置通知织入到名为strength的切入点-->
+            <aop:before method="before" pointcut-ref="strength"/>
+            <!--将名为AopAdvice的环绕通知织入到名为strength的切入点-->
+            <aop:around method="around" pointcut-ref="strength"/>
+            <!--将名为AopAdvice的后置通知（出现异常不会调用）织入到名为strength的切入点-->
+            <aop:after-returning method="afterReturning" pointcut-ref="strength"/>
+            <!--将名为AopAdvice的异常通知织入到名为strength的切入点-->
+            <aop:after-throwing method="afterException" pointcut-ref="strength"/>
+            <!--将名为AopAdvice的后置通知织入到名为strength的切入点-->
+            <aop:after method="after" pointcut-ref="strength"/>
+        </aop:aspect>
+    </aop:config>
+</beans>
+```
 
+### 测试类
+``` java
+package cn.Pu1satilla.AOP;
 
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.test.context.ContextConfiguration;
+import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
+import javax.annotation.Resource;
 
+//由注解创建容器
+@RunWith(SpringJUnit4ClassRunner.class)
 
+//指定创建容器时使用配置文件
+@ContextConfiguration("classpath:applicationContext.xml")
 
+public class Demo {
 
+    @Resource(name = "cat")
+    private Cat cat;
 
+    @Test
+    public void demo1(){
+        cat.shit();
+    }
+}
+```
 
+## 注解配置
 
+### 导包
+![](/assets/images/Spring/aop_configuration.PNG)
 
+### 目标对象类
+``` java
+package cn.Pu1satilla.AOP;
 
+import org.springframework.stereotype.Component;
 
+@Component("cat")
 
+public class Cat implements Animal {
 
+    @Override
+    public void speak() {
+        System.out.println("喵喵喵");
+    }
 
+    @Override
+    public void eat(String animal) {
+        System.out.println("猫吃" + animal);
+    }
 
+    @Override
+    public void run() {
+        System.out.println("猫追耗子");
+    }
 
+    @Override
+    public void shit() {
+        System.out.println("猫也拉屎");
+        int i = 1 / 0;
+    }
+}
+```
 
+### 通知类
+``` xml
+package cn.Pu1satilla.AOP;
 
+import org.aspectj.lang.ProceedingJoinPoint;
 
+public class AopAdvice {
 
+    //    前置通知
+    public void before(){
+         System.out.println("前置增强=============");
+    }
 
+    //    后置通知
+    public void afterReturning(){
+        System.out.println("运行后增强=============（出现异常不会调用）");
+    }
 
+    //    环绕通知
+    public Object around(ProceedingJoinPoint pjd) throws Throwable {
 
+        System.out.println("环绕增强前部分=============");
+        Object proceed = pjd.proceed();
+        System.out.println("环绕增强后部分=============");
+        return proceed;
+    }
 
+    //    异常通知
+    public void afterException() {
+        System.out.println("出现异常=============");
+    }
+
+    //    后置通知
+    public void after(){
+        System.out.println("运行后增强=============（出现异常也会调用）");
+    }
+}
+```
+
+### 注解相关
+
+#### 通知类
+**表明该类是通知类,注解配置于类上方**
+``` java
+@Aspect
+public class AopAdvice {}
+```
+
+**配置切入点表达式：哪些类的哪些方法需要在目标对象哪些位置进行增强**
+
+**前置通知**
+``` java
+//    前置通知
+@Before("execution(* cn.Pu1satilla.AOP.Cat.*(..))")
+public void before(){
+	 System.out.println("前置增强=============");
+}
+```
+
+**后置通知（出现异常不会调用）**
+``` java
+//    后置通知
+@AfterReturning("execution(* cn.Pu1satilla.AOP.Cat.*(..))")
+public void afterReturning(){
+	System.out.println("运行后增强=============（出现异常不会调用）");
+}
+```
+
+**环绕通知**
+``` java
+//    环绕通知
+@Around("execution(* cn.Pu1satilla.AOP.Cat.speak())")
+public Object around(ProceedingJoinPoint pjd) throws Throwable {
+
+	System.out.println("环绕增强前部分=============");
+	Object proceed = pjd.proceed();
+	System.out.println("环绕增强后部分=============");
+	return proceed;
+}
+```
+
+**异常通知**
+``` java
+//    异常通知
+@AfterThrowing("execution(* cn.Pu1satilla.AOP.Cat.shit())")
+public void afterException() {
+	System.out.println("出现异常=============");
+}
+```
+
+**后置通知（出现异常也会调用）**
+``` java
+//    后置通知
+@After("execution(* cn.Pu1satilla.AOP.Cat.*())")
+public void after(){
+	System.out.println("运行后增强=============（出现异常也会调用）");
+}
+```
+
+**整合**
+``` java
+package cn.Pu1satilla.AOP;
+
+import org.aspectj.lang.ProceedingJoinPoint;
+import org.aspectj.lang.annotation.*;
+
+//@Aspect //表明该类是一个通知类
+public class AopAdvice {
+
+    //    前置通知
+    @Before("execution(* cn.Pu1satilla.AOP.Cat.*(..))")
+    public void before(){
+         System.out.println("前置增强=============");
+    }
+
+    //    后置通知
+    @AfterReturning("execution(* cn.Pu1satilla.AOP.Cat.*(..))")
+    public void afterReturning(){
+        System.out.println("运行后增强=============（出现异常不会调用）");
+    }
+
+    //    环绕通知
+    @Around("execution(* cn.Pu1satilla.AOP.Cat.speak())")
+    public Object around(ProceedingJoinPoint pjd) throws Throwable {
+
+        System.out.println("环绕增强前部分=============");
+        Object proceed = pjd.proceed();
+        System.out.println("环绕增强后部分=============");
+        return proceed;
+    }
+
+    //    异常通知
+    @AfterThrowing("execution(* cn.Pu1satilla.AOP.Cat.shit())")
+    public void afterException() {
+        System.out.println("出现异常=============");
+    }
+
+    //    后置通知
+    @After("execution(* cn.Pu1satilla.AOP.Cat.*())")
+    public void after(){
+        System.out.println("运行后增强=============（出现异常也会调用）");
+    }
+}
+```
 
 
 
