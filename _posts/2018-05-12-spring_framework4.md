@@ -481,7 +481,6 @@ public class AopAdvice {
 
 ### 注解相关
 
-#### 通知类
 **表明该类是通知类,注解配置于类上方**
 ``` java
 @Aspect
