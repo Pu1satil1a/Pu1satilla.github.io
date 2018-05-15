@@ -1,6 +1,6 @@
 ---
 title: Spring(三)
-description: 使用注解配置spring以及junit整合spring
+description: 从配置文件中读取内容、使用注解配置spring以及junit整合spring
 categories:
  - Web
  - Java
@@ -8,6 +8,36 @@ categories:
 tags: [Web, Java, Spring]
 ---
 
+# 从配置文件中读取内容
+
+## bean命名空间
+``` xml
+    <!--load properties-->
+    <bean class="org.springframework.context.support.PropertySourcesPlaceholderConfigurer">
+        <property name="location" value="DruidUtils.properties"/>
+    </bean>
+
+    <bean class="com.alibaba.druid.pool.DruidDataSource" name="dataSource">
+		<!--获取配置文件中的值，表达式为${key}-->
+        <property name="url" value="${jdbc.jdbcUrl}"/>
+        <property name="username" value="${jdbc.username}"/>
+        <property name="password" value="${jdbc.password}"/>
+    </bean>
+```
+
+## context命名空间
+```xml 
+    <!--load properties
+		location值为参数配置文件的位置
+	-->
+    <context:property-placeholder location="DruidUtils.properties"/>
+
+    <bean class="com.alibaba.druid.pool.DruidDataSource" name="dataSource">
+        <property name="url" value="${jdbc.jdbcUrl}"/>
+        <property name="username" value="${jdbc.username}"/>
+        <property name="password" value="${jdbc.password}"/>
+    </bean>
+```
 
 # 注解配置spring
 
