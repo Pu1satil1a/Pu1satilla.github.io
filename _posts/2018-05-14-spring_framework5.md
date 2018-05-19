@@ -59,7 +59,7 @@ jdbc.maxActive=20
 与Dbutils类似，Dbutils的QueryRunner类似于SpringJDBC的JdbcTemplate，学习如何使用SpringJDBC，根据下列常用API
 
 1. execute方法：可以用于执行任何sql语句，一般用于执行DDL语句
-2. update方法|batchUpdate方法：update方法用于执行新增、修改 、删除等语句；batchUpdate方法用于执行批处理相关语句
+2. update方法/batchUpdate方法：update方法用于执行新增、修改 、删除等语句；batchUpdate方法用于执行批处理相关语句
 3. query方法及queryForXXX方法：用于执行查询相关语句
 4. call方法：用于执行存储过程、函数相关语句
 
@@ -328,6 +328,16 @@ public class demo {
 ```
 
 #### 配置事务核心管理类
+指定操纵事务的属于哪个平台，因为不同平台的事务操作的代码不相同，spring通过一个接口将不同平台的事务操作整合到一起，封装起来，其接口实现类对应不同平台，需要事先配置指定控制事务的属于哪个平台。
+``` xml
+    <!--配置事务核心管理类，封装了所有事务操作（对应SpringJdbc平台），
+        事务由connection控制，所以依赖于连接池，注入连接池-->
+    <bean class="org.springframework.jdbc.datasource.DataSourceTransactionManager" name="transactionManager">
+        <property name="dataSource" ref="dataSource"/>
+    </bean>
+```
+
+#### 将DataSource注入dao
 将连接池注入dao，dao类可以继承JdbcSupportDao类，具有方法getJdbcTemplate可直接获得JdbcTemplate，通过xml配置就能注入，无需再次声明
 ``` xml
     <!--将连接池注入Dao-->
@@ -336,19 +346,159 @@ public class demo {
     </bean>
 ```
 
-#### 将DataSource注入dao
-
 #### 将dao类注入到service
+将dao注入service，并且声明dao属性
+``` xml
+    <!--注入Service-->
+    <bean name="accountService" class="cn.Pu1satilla.dao.AccountServiceImpl">
+        <!--注入Dao-->
+        <property name="accountDao" ref="accountDao"/>
+    </bean>
+```
 
 #### 配置事务通知
+``` xml
+    <!--
+        配置事务通知
+        属性：
+        transaction-manager属性在配置文件中只存在单个其为默认
+    -->
+    <tx:advice id="txAdvice">
+
+        <tx:attributes>
+            <!--以方法为单位，指定方法应用说明事务属性
+                isolation：隔离级别
+                propagation：传播行为默认为PROPACATION_REQUIED 支持当前事务，如果不存在就新建一个
+                read-only：是否只读默认为false
+            -->
+            <tx:method name="transfer" isolation="REPEATABLE_READ" propagation="REQUIRED"/>
+        </tx:attributes>
+    </tx:advice>
+```
 
 #### 将通知织入切入点
+``` xml
+    <!--进行aop配置-->
+    <aop:config>
+        <!--配置切入点表达式，哪些类哪些方法需要被通知-->
+        <aop:pointcut id="TS" expression="execution(* cn.Pu1satilla.dao.AccountServiceImpl.transfer(..))"/>
+
+        <!--配置切面：通知+切面-->
+        <aop:advisor advice-ref="txAdvice" pointcut-ref="TS"/>
+    </aop:config>
+```
+#### 整体配置
+``` xml
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:aop="http://www.springframework.org/schema/aop"
+       xmlns:tx="http://www.springframework.org/schema/tx"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans
+                            http://www.springframework.org/schema/beans/spring-beans.xsd
+                            http://www.springframework.org/schema/context
+                            http://www.springframework.org/schema/context/spring-context.xsd
+                            http://www.springframework.org/schema/aop
+                            http://www.springframework.org/schema/aop/spring-aop.xsd
+                            http://www.springframework.org/schema/tx
+                            http://www.springframework.org/schema/tx/spring-tx.xsd">
+
+    <!--从配置文件注入DruidDataSource-->
+    <context:property-placeholder location="DruidUtils.properties"/>
+
+    <bean name="dataSource" class="com.alibaba.druid.pool.DruidDataSource">
+        <property name="url" value="${jdbc.jdbcUrl}"/>
+        <property name="username" value="${jdbc.username}"/>
+        <property name="initialSize" value="${jdbc.initialSize}"/>
+        <property name="minIdle" value="${jdbc.minIdle}"/>
+        <property name="maxActive" value="${jdbc.maxActive}"/>
+        <property name="password" value="${jdbc.password}"/>
+    </bean>
+
+    <!--将连接池注入Dao-->
+    <bean name="accountDao" class="cn.Pu1satilla.dao.AccountDaoImpl">
+        <property name="dataSource" ref="dataSource"/>
+    </bean>
+
+    <!--配置事务核心管理类，封装了所有事务操作（对应SpringJdbc平台），
+        事务由connection控制，所以依赖于连接池，注入连接池-->
+    <bean class="org.springframework.jdbc.datasource.DataSourceTransactionManager" name="transactionManager">
+        <property name="dataSource" ref="dataSource"/>
+    </bean>
+
+    <!--注入Service-->
+    <bean name="accountService" class="cn.Pu1satilla.dao.AccountServiceImpl">
+        <!--注入Dao-->
+        <property name="accountDao" ref="accountDao"/>
+    </bean>
+
+    <!--
+        配置事务通知
+        属性：
+        transaction-manager属性在配置文件中只存在单个其为默认
+    -->
+    <tx:advice id="txAdvice">
+
+        <tx:attributes>
+            <!--以方法为单位，指定方法应用说明事务属性
+                isolation：隔离级别
+                propagation：传播行为默认为PROPACATION_REQUIED 支持当前事务，如果不存在就新建一个
+                read-only：是否只读默认为false
+            -->
+            <tx:method name="transfer" isolation="REPEATABLE_READ"/>
+        </tx:attributes>
+    </tx:advice>
+
+    <!--进行aop配置-->
+    <aop:config>
+        <!--配置切入点表达式，哪些类哪些方法需要被通知-->
+        <aop:pointcut id="TS" expression="execution(* cn.Pu1satilla.dao.AccountServiceImpl.transfer(..))"/>
+
+        <!--配置切面：通知+切面-->
+        <aop:advisor advice-ref="txAdvice" pointcut-ref="TS"/>
+    </aop:config>
+</beans>
+```
 
 ### 注解配置（aop）
 
+#### 配置事务管理核心类
+与xml一致，都是为了指定管理事务的平台
+``` xml
+    <!--配置事务核心管理类，封装了所有事务操作（对应SpringJdbc平台），
+    事务由connection控制，所以依赖于连接池，注入连接池-->
+    <bean class="org.springframework.jdbc.datasource.DataSourceTransactionManager" name="transactionManager">
+        <property name="dataSource" ref="dataSource"/>
+    </bean>
+```
 
+#### 开启注解管理事务
+``` xml
+    <!--开启注解管理事务，
+        属性：transaction-manager
+        在配置文件中只存在单个其为默认
+    -->
+    <tx:annotation-driven />
+```
 
+#### 添加注解
+在需要使用事务类方法或类上使用注解
+``` java
+    @Transactional(isolation = Isolation.REPEATABLE_READ,propagation = Propagation.REQUIRED)
+    public void transfer(int from, int to, double money) {
 
+        //        转账人金额
+        accountDao.decreaseMoney(from, money);
+
+        //        测试出现异常，spring提供aop事务操作是否有效
+//        int i = 1 / 0;
+
+        //        收款人金额
+        accountDao.addMoney(to, money);
+    }
+```
+**在类跟方法上添加注解区别：**类上方添加注解使整个类的方法都实现增强事务；方法上方添加注解使单个方法实现增强事务，当某个特殊方法需要使用不同属性注解方式，可以现在类上添加普遍注解，再在单独类上添加特殊注解。
 
 
 
