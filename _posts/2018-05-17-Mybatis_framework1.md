@@ -254,9 +254,6 @@ public class Demo {
 }
 ```
 
-
-
-
 # mapper配置
 
 ## 配置头文件
@@ -279,7 +276,7 @@ public class Demo {
 
 将会传入这条语句的参数类的完全限定名或别名。这个属性是可选的，因为 MyBatis 可以通过 TypeHandler 推断出具体传入语句的参数，默认值为 unset。
 
-通过设置parameterType值，在sql语句中使用表达式${}来获取传入对象属性（底层使用getXxx()方法）。
+通过设置parameterType值，在sql语句中使用表达式#{}来获取传入对象属性（底层使用getXxx()方法）。
 
 
 # 主配置
@@ -360,6 +357,38 @@ configurationFactory	|指定一个提供Configuration实例的类。 这个被�
 
 ## typeAliases元素
 类型别名是为 Java 类型设置一个短的名字。它只和 XML 配置有关，存在的意义仅在于用来减少类完全限定名的冗余。
+
+这是一些为常见的 Java 类型内建的相应的类型别名。它们都是大小写不敏感的，需要注意的是由基本类型名称重复导致的特殊处理。**可以直接使用这些别名完成类型确定。**
+
+别名	|映射的类型
+---- | ----
+_byte	|byte
+_long	|long
+_short	|short
+_int	|int
+_integer	|int
+_double	|double
+_float	|float
+_boolean	|boolean
+string	|String
+byte	|Byte
+long	|Long
+short	|Short
+int	|Integer
+integer	|Integer
+double	|Double
+float	|Float
+boolean	|Boolean
+date	|Date
+decimal	|BigDecimal
+bigdecimal	|BigDecimal
+object	|Object
+map	|Map
+hashmap	|HashMap
+list	|List
+arraylist	|ArrayList
+collection	|Collection
+iterator	|Iterator
 
 ### typeAlias属性
 typeAliases属性可以将需要对象命名成自己需要，简化类书写
