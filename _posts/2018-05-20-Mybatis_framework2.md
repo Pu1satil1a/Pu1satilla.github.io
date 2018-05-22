@@ -195,6 +195,25 @@ resultSets 	|这个设置仅对多结果集的情况适用，它将列出语句�
     }
 ```
 
+# 多条件查询
+**当传递参数为map时**
+``` xml
+    <!--多条件查询，传递参数为map-->
+    <select id="selectStudentByCondition" resultType="Student">
+        SELECT *
+        FROM mybatis.student
+        WHERE name LIKE '%' #{name} '%' AND age > #{age}
+    </select>
+```
+
+**当传递为多参数时**
+``` xml
+    <!--多条件查询，多参数传递-->
+    <select id="selectStudentByConditions" resultType="Student">
+        SELECT * FROM mybatis.student WHERE name LIKE '%' #{arg0} '%' AND age > #{arg1}
+    </select>
+```
+
 ## insert
 与select元素不一致且重要的属性:
 

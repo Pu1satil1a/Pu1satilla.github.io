@@ -226,35 +226,236 @@ public class Demo1 {
 }
 ```
 
+# 动态SQL
+动态SQL主要用于解决查询条件不确定的情况：在程序运行期间没根据用户提交的查询条件进行查询，提交的查询条件不同，执行的SQL语句不同。若将每种可能的情况均逐一列出，对所有条件进行排列组合，将会出现大量SQL语句。此时，可使用动态SQL来解决这样的问题。
 
+动态SQL，即通过Mybatis提供的各种标签对条件作出判断以实现动态拼接SQl语句。
 
+## if标签
+if标签test属性用于判断传入值是否符合，符合则执行标签内内容，不符合则跳过。
+``` xml
+    <!--动态SQL if标签-->
+    <select id="selectStudentByCondition" resultType="Student">
+        SELECT * FROM mybatis.student WHERE
+        <if test=" name != null and name !=''">
+            name LIKE '%' #{name} '%'
+        </if>
+        <if test="age > 0">
+            AND age &gt; #{age}
+        </if>
+    </select>
+```
+这样又可能会导致首个条件不符合，直接判断第二个条件，sql语句报错：
+``` sql
+SELECT * FROM mybatis.student WHERE AND age &gt; #{age}
+```
 
+可以通过添加条件`1=1`
+``` sql
+    <!--动态SQL if标签-->
+    <select id="selectStudentByCondition" resultType="Student">
+        SELECT * FROM mybatis.student WHERE 1=1
+        <if test=" name != null and name !=''">
+            AND name LIKE '%' #{name} '%'
+        </if>
+        <if test="age > 0">
+            AND age &gt; #{age}
+        </if>
+    </select>
+```
+这样又会导致执行没必要sql语句，浪费资源，这时where标签就派上用场了
 
+## where标签
 
+MyBatis 有一个简单的处理，这在 90% 的情况下都会有用。而在不能使用的地方，你可以自定义处理方式来令其正常工作。一处简单的修改就能达到目的：
+``` xml
+    <!--动态SQL where标签-->
+    <select id="selectStudentByCondition" resultType="Student">
+        SELECT * FROM mybatis.student
+        <where>
+            <if test=" name != null and name !=''">
+                AND name LIKE '%' #{name} '%'
+            </if>
+            <if test="age > 0">
+                AND age &gt; #{age}
+            </if>
+        </where>
+    </select>
+```
+where 元素只会在至少有一个子元素的条件返回 SQL 子句的情况下才去插入`“WHERE”`子句。而且，若语句的开头为`“AND”`或`“OR”`，where 元素也会将它们去除。 
 
+## choose标签
+有时我们不想应用到所有的条件语句，而只想从中择其一项。针对这种情况，MyBatis 提供了 choose 元素，它有点像 Java 中的 switch 语句。
+``` xml
+    <!--动态SQL查询 Choose标签-->
+    <select id="selectStudentByChoose" resultType="Student">
+        SELECT * FROM mybatis.student
+        <where>
+            <choose>
+                <when test="arg0 != null and arg0 != ''">
+                    AND name like '%' #{arg0} '%'
+                </when>
+                <when test="arg1 > 0">
+                    AND age > #{arg1}
+                </when>
+                <otherwise>
+                    1=2
+                </otherwise>
+            </choose>
+        </where>
+    </select>
+```
 
+接口以及测试类
+``` java
+    //    动态SQL查询，choose标签
+    List<Student> selectStudentByChoose(String name, int age);
+	
+	//	   测试方法
+	    @Test
+    public void demo9() {
 
+        List<Student> students = studentDao.selectStudentByChoose("", 0);
+        System.out.println(students);
+    }
+```
 
+## foreach标签
 
+动态 SQL 的另外一个常用的操作需求是对一个集合进行遍历，通常是在构建 IN 条件语句的时候。
 
+foreach 元素的功能非常强大，它允许你指定一个集合，声明可以在元素体内使用的集合项（item）和索引（index）变量。它也允许你指定开头与结尾的字符串以及在迭代结果之间放置分隔符。这个元素是很智能的，因此它不会偶然地附加多余的分隔符。
 
+注意：** 你可以将任何可迭代对象（如 List、Set 等）、Map 对象或者数组对象传递给 foreach 作为集合参数。当使用可迭代对象或者数组时，index 是当前迭代的次数，item 的值是本次迭代获取的元素。当使用 Map 对象（或者 Map.Entry 对象的集合）时，index 是键，item 是值。**
 
+### 参数为数组
+配置文件
+``` xml
+    <!--动态SQL查询 foreach标签 数组作为参数-->
+    <select id="selectStudentByForeachArray" resultType="Student">
+        SELECT * FROM mybatis.student WHERE id IN
 
+        <!--
+            遍历数组,类似于Java中for循环,遍历一个数组并取出相应对象用于组成SQL语句
+            SELECT * FROM mybatis.student WHERE id IN ( ? , ? , ? , ? )
+                collection：指定array表明传入参数为数组
+                      item：每次遍历获取的对象
+                     index：当前遍历索引
+        -->
+            <foreach collection="array" item="item" index="index" open="(" separator="," close=")">
+                #{item}
+            </foreach>
+    </select>
+```
+接口及测试类
+``` java
+	接口
+    //    动态SQL查询，foreach标签，数组作为参数
+    List<Student> selectStudentByForeachArray(int[] id);
 
+	//    测试类
+	@Test
+    public void demo10() {
 
+        int[] id = {24, 25, 26, 27};
 
+        List<Student> students = studentDao.selectStudentByForeachArray(id);
+        System.out.println(students);
+    }
+```
 
+### 参数为集合（基本类型）
 
+配置文件
+``` xml
+    <!--动态SQL查询 foreach标签 集合作为参数-->
+    <select id="selectStudentByForeachList" resultType="Student">
+        SELECT * FROM mybatis.student WHERE id IN
 
+        <!--
+            遍历集合,类似于Java中for循环,遍历一个数组并取出相应对象用于组成SQL语句
+            SELECT * FROM mybatis.student WHERE id IN ( ? , ? , ? , ? )
+                collection：指定list表明传入参数为集合
+                      item：每次遍历获取的对象
+                     index：当前遍历索引
+        -->
+            <foreach collection="list" item="item" index="index" open="(" separator="," close=")">
+                #{item}
+            </foreach>
+    </select>
+```
+接口及测试类
+``` java
+    //    动态SQL查询，foreach标签，集合作为参数
+    List<Student> selectStudentByForeachList(List<Integer> id);
 
+	//	   接口
+    @Test
+    public void demo11() {
 
+        List<Integer> id = new ArrayList<>();
 
+        id.add(35);
+        id.add(37);
+        id.add(38);
 
+        List<Student> students = studentDao.selectStudentByForeachList(id);
+        System.out.println(students);
+    }
+```
 
+### 参数为集合（引用类型）
 
+配置文件
+``` xml
+    <!--动态SQL查询 foreach标签 集合作为参数（引用类型）-->
+    <select id="selectStudentByForeachListStudent" resultType="Student">
+        SELECT * FROM mybatis.student WHERE id IN
 
+        <!--
+            遍历集合,类似于Java中for循环,遍历一个数组并取出相应对象用于组成SQL语句
+            SELECT * FROM mybatis.student WHERE id IN ( ? , ? , ? , ? )
+                collection：指定list表明传入参数为集合
+                      item：每次遍历获取的对象
+                     index：当前遍历索引
+        -->
+        <foreach collection="list" item="item" index="index" open="(" separator="," close=")">
+            #{item.id}
+        </foreach>
+    </select>
+```
+接口及测试类
+``` java
+    //    动态SQL查询，foreach标签，遍历引用类型的集合
+    List<Student> selectStudentByForeachListStudent(List<Student> students);
 
+	//	   测试类
+	@Test
+    public void demo12() {
 
+        List<Student> id = new ArrayList<>();
+
+        id.add(new Student(33, "松江", 55, 50));
+        id.add(new Student(35, "孔明", 56, 77));
+
+        List<Student> students = studentDao.selectStudentByForeachListStudent(id);
+        System.out.println(students);
+    }
+```
+
+## sql标签
+将一部分sql语句存放到另外一个标签，在其它标签可以引用
+
+``` xml
+   <sql id="select">
+        SELECT * FROM mybatis
+    </sql>
+
+    <!--动态SQL查询 通过引入其他sql语句-->
+    <select id="selectStudentBySql" resultType="Student">
+        <include refid="select"/>.student
+    </select>
+```
 
 
 
