@@ -8,7 +8,12 @@ categories:
 tags: [Web, Java, SpringMVC]
 ---
 
+配置式开发指的是：处理器是程序员手工定义的、实现了特定接口的类，然后再在SpringMVC配置文件中对该类进行显式的、明确的注册。
 
+# 处理器映射器HandlerMapping
+`HandlerMapper`接口负责根据reqeust请求找到对应Handle处理器及Interceptor拦截器，并将它们封装在`HandlerExecutionChain`对象中，返回给中央调度器。
+
+## BeanNameUrlHandlerMapping（默认）
 
 
 
