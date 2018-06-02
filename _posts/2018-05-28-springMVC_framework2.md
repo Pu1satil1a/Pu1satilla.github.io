@@ -1,6 +1,6 @@
 ---
 title: SpringMVC(二)
-description: SpringMVC配置式开发
+description: SpringMVC处理器映射器、处理器适配器、处理器之间关系以及配置使用
 categories:
  - Web
  - Java
@@ -310,29 +310,240 @@ public ModelAndView handle(HttpServletRequest request, HttpServletResponse respo
 # 处理器
 处理器除了实现Controller接口外，还可以继承自一些其它的类来完成一些特殊的功能。
 
+## AbstractController类
+`AbstractController`抽象类实现了`Controller`接口，继承了`WebContentGenerator`类，自然继承了该类拥有的功能。
 
+该类又拥有支持的方式属性`setSupportedMethods()`
+``` java
+/**
+ * Set the HTTP methods that this content generator should support.
+ * <p>Default is GET, HEAD and POST for simple form controller types;
+ * unrestricted for general controllers and interceptors.
+ */
+public final void setSupportedMethods(String... methods) {
+	if (methods != null) {
+		this.supportedMethods = new HashSet<String>(Arrays.asList(methods));
+	}
+	else {
+		this.supportedMethods = null;
+	}
+}
+```
+设置该上下文生成器对象应该支持的HTTP方法，默认为Get，Head，Post方式。
 
+`AbstractController`抽象类实现Controller接口的`handleRequest()`方法，先将请求委派给父类进行检查和准备，然后调用其实现类方法`handleRequestInternal()`自定义方法进行处理。
+``` java
+@Override
+public ModelAndView handleRequest(HttpServletRequest request, HttpServletResponse response)
+		throws Exception {
 
+	// Delegate to WebContentGenerator for checking and preparing.
+	// 委派给WebContentGenerator进行检查和准备。
+	checkRequest(request);
+	prepareResponse(response);
 
+	// Execute handleRequestInternal in synchronized block if required.
+	if (this.synchronizeOnSession) {
+		HttpSession session = request.getSession(false);
+		if (session != null) {
+			Object mutex = WebUtils.getSessionMutex(session);
+			synchronized (mutex) {
+				return handleRequestInternal(request, response);
+			}
+		}
+	}
+	// 自定义处理内部请求方法来处理请求
+	return handleRequestInternal(request, response);
+}
+```
 
+通过配置完成指定请求方式的处理器代码。
+``` java
+public class MyController extends AbstractController {
 
+    @Override
+    protected ModelAndView handleRequestInternal(HttpServletRequest request, HttpServletResponse response) throws Exception {
+        ModelAndView mv = new ModelAndView();
 
+        //        底层执行的是request.setAttribute()方法
+        mv.addObject("message", "Hello springmvc world");
 
+        //        只需要输入文件名，视图解析器能够完成全名拼接
+        mv.setViewName("welcome");
+        return mv;
+    }
 
+}
+```
 
+配置中央调度器中处理器xml文件
+``` xml
+<!--
+	注册处理器,配置其父类WebContentGenerator属性supportedMethods
+	表示只允许post方式的请求
+-->
+<bean id="controllerDemo1" class="cn.Pu1satilla.handlers.MyController">
+	<property name="supportedMethods" value="POST"/>
+</bean>
+```
 
+通过地址栏进行访问网址，出现结果为：
+![](/assets/images/springMVC/supportedMethods.png)
 
+设置为POST方式提交则处理器只支持post方式，get方式则会报错，继承该抽象类的处理器可以对HTTP请求提交方式进行限制。
 
+## 继承自MultiActionController类
+`MultiActionController`类继承自`AbstractController`，所以继承自`MultiActionController`类的子类也可以设置HTTP请求提交方式。
 
+该类可以实现的功能：
+- 设置Http请求方式
+- 定义多个处理方法
 
+### 修改处理器类
+``` java
+public class MyController extends MultiActionController {
 
+    public ModelAndView doFirst(HttpServletRequest request, HttpServletResponse response) throws Exception {
+        ModelAndView mav = new ModelAndView();
 
+        mav.addObject("message", "这是doFirst()方法");
 
+        mav.setViewName("welcome");
+        return mav;
+    }
 
+    public ModelAndView doSecond(HttpServletRequest request, HttpServletResponse response) throws Exception {
+        ModelAndView mav = new ModelAndView();
 
+        mav.addObject("message", "这是doSecond()方法");
 
+        mav.setViewName("welcome");
+        return mav;
+    }
+}
+```
 
+### 配置文件
+注意处理器类的映射路径的写法：要求必须以`/xxx/*`的路径方式定义映射路径。其中`*`为通配符，在访问时使用要访问的方法名代替。
+``` xml
+<!--注册处理器映射器-->
+<bean class="org.springframework.web.servlet.handler.SimpleUrlHandlerMapping">
+	<property name="urlMap">
+		<map>
+			<entry key="/welcome/*.do" value-ref="controllerDemo1"/>
+		</map>
+	</property>
+</bean>
 
+<bean id="controllerDemo1" class="cn.Pu1satilla.handlers.MyController"/>
+
+<!--注册视图解析器-->
+<bean class="org.springframework.web.servlet.view.InternalResourceViewResolver">
+	<property name="prefix" value="/WEB-INF/demo/"/>
+	<property name="suffix" value=".jsp"/>
+</bean>
+```
+
+### 访问路径
+通配符分别对应处理器的方法`doFirst()`或者`doSecond()`，`/xxx/*`中`*`对应处理器中的方法。
+
+``` url
+http://localhost:8080/welcome/doFirst.do
+```
+
+``` url
+http://localhost:8080/welcome/doSecond.do
+```
+
+### 源码分析
+之所以通过请求URL中写上方法名就可以访问到指定方法，是因为在MultiActionController类中有一个专门处理方法名称的解析器MethodNameResolver。
+该解析器作为一个属性出现，具有get与set方法。MethodNameResolver是一个接口，不同的解析器实现类，其对方法名在URI中的写法要求也是不同的。
+
+#### InternalPathMethodNameResolver
+`MultiActionController`类具有一个默认的`MethodNameResolver`解析器。
+``` java
+/** Delegate that knows how to determine method names from incoming requests */
+private MethodNameResolver methodNameResolver = new InternalPathMethodNameResolver();
+```
+
+该方法名解析器要求方法名以URI中资源名称的身份出现，即方法作为一种可以被请求的资源出现。也就是前面的写法：/xxx/方法名。
+
+#### PropertiesMethodNameResolver
+该方法名解析器中的方法名是作为URI资源名称中的一部分出现的，即方法名并非单独作为一种资源名称出现。例如请求时可以写为`/xxx_doFirst`，则会访问xxx所映射的处理器的`doFirst()`方法。
+
+**配置xml文件**
+``` xml
+<!--注册处理器映射器-->
+<bean class="org.springframework.web.servlet.handler.SimpleUrlHandlerMapping">
+	<property name="urlMap">
+		<map>
+			<entry key="/welcome_*.do" value-ref="controllerDemo1"/>
+		</map>
+	</property>
+</bean>
+
+<!--配置方法名解析器-->
+<bean id="MethodNameResolver" class="org.springframework.web.servlet.mvc.multiaction.PropertiesMethodNameResolver">
+	<property name="mappings">
+		<props>
+			<prop key="/welcome_doFirst.do">doFirst</prop>
+			<prop key="/welcome_doSecond.do">doSecond</prop>
+		</props>
+	</property>
+</bean>
+
+<!--注册处理器，配置属性-->
+<bean id="controllerDemo1" class="cn.Pu1satilla.handlers.MyController">
+	<property name="methodNameResolver" ref="MethodNameResolver"/>
+</bean>
+
+<!--注册视图解析器-->
+<bean class="org.springframework.web.servlet.view.InternalResourceViewResolver">
+	<property name="prefix" value="/WEB-INF/demo/"/>
+	<property name="suffix" value=".jsp"/>
+</bean>
+```
+
+**请求url**  
+``` url
+http://localhost:8080/welcome_doFirst.do
+```
+
+#### ParameterMethodNameResolver
+
+参数方法名解析器，**以方法名作为参数请求的值出现**。例如请求时可以写为`/xx?param=doFirst`,则会访问xx所映射的处理器的doFirst()方法，其中xx为该请求所携带的参数名，而doFirst则作为其参数值出现。
+
+修改xml文件
+``` xml
+<!--注册处理器映射器-->
+<bean class="org.springframework.web.servlet.handler.SimpleUrlHandlerMapping">
+	<property name="urlMap">
+		<map>
+			<entry key="/welcome.do" value-ref="controllerDemo1"/>
+		</map>
+	</property>
+</bean>
+
+<!--配置参数方法名解析器-->
+<bean id="MethodNameResolver" class="org.springframework.web.servlet.mvc.multiaction.ParameterMethodNameResolver">
+	<!--
+		如果不进行设置，则参数名默认为action
+			url：localhost:8080/welcome.do?action=方法名
+	-->
+	<property name="paramName" value="param"/>
+</bean>
+
+<!--注册处理器，配置属性，注入方法名解析器-->
+<bean id="controllerDemo1" class="cn.Pu1satilla.handlers.MyController">
+	<property name="methodNameResolver" ref="MethodNameResolver"/>
+</bean>
+
+<!--注册视图解析器-->
+<bean class="org.springframework.web.servlet.view.InternalResourceViewResolver">
+	<property name="prefix" value="/WEB-INF/demo/"/>
+	<property name="suffix" value=".jsp"/>
+</bean>
+```
 
 
 
