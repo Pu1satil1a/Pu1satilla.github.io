@@ -1,7 +1,12 @@
-
-
-
-
+---
+title: SpringMVC(四)
+description: 注解式开发
+categories:
+ - Web
+ - Java
+ - SpringMVC
+tags: [Web, Java, SpringMVC]
+---
 
 
 注解式开发是重点。
