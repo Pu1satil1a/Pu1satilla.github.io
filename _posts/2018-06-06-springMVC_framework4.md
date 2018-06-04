@@ -260,6 +260,11 @@ public ModelAndView firstRequestForm(String name, int age) throws Exception {
 </filter-mapping>
 ```
 
+当使用过滤器filter还是出现乱码，则需要修改tomcat的server.xml文件
+``` xml
+   <Connector port="8080" protocol="HTTP/1.1" connectionTimeout="20000" redirectPort="8443"  URIEncoding="utf-8"/>
+```
+
 ## 校正请求参数名@RequestParam
 当请求参数跟接收参数不一致时，就无法接收到对应参数，要求不能更改参数名，接收到参数，这时需要使用`@RequestParam`。
 
@@ -428,7 +433,7 @@ public class School {
 # 处理器方法的返回值
 
 ## 返回ModelAndView
-若处理器方法处理完后，需要跳转到其它资源，且又要在跳转的资源间传递数据，此时处理器方法返回ModelAndView比较好。当然，若要返回ModelAndView，则处理器方法中需要定义ModelAndView对象。在使用时，若该处理器方法只是进行跳转而不传递数据，或只是传递数据而并不向任何资源跳转（如对页面的Ajax异步响应），此时若返回ModelAndView，则将总是有一部分多余：要么Model多余，要么View多余。即此时返回ModelAndView将不合适。
+若处理器方法处理完后，需要跳转到其它资源，且又要在跳转的资源间传递数据，此时处理器方法返回ModelAndView比较好。当然，若要返回`ModelAndView`，则处理器方法中需要定义`ModelAndView`对象。在使用时，若该处理器方法只是进行跳转而不传递数据，或只是传递数据而并不向任何资源跳转（如对页面的Ajax异步响应），此时若返回ModelAndView，则将总是有一部分多余：要么Model多余，要么View多余。即此时返回ModelAndView将不合适。
 
 ## 返回String
 处理器方法返回的字符串可以指定逻辑视图名，通过视图解析器解析可以将其转换为物理视图地址。
@@ -485,9 +490,252 @@ ${message}
 若处理器对请求处理后，无需跳转到其它任何资源，此时可以让处理器方法返回void。
 
 #### 导包
-
+导入fastJson解析包
+![](/assets/images/springMVC/JSON_jar.png)
 
 #### 引入JQuery库
+![](/assets/images/springMVC/js.png)
 
+#### 前台页面
+``` jsp
+<%@ page contentType="text/html;charset=UTF-8" language="java" %>
+<html>
+<head>
+</head>
+<body>
+
+<input type="button" value="Ajax请求" id="button">
+
+</body>
+
+<%--引入js库--%>
+<script type="text/javascript" src="js/jquery-1.8.3.js"></script>
+
+<%--点击发送Ajax请求--%>
+<script>
+    $(function () {
+        $("#button").click(function () {
+            $.ajax({
+                type: "POST",
+                url: "${pageContext.request.contextPath}/test/ajax.do",
+                data: {
+                    pname: "ajax测试",
+                    page:0
+                },
+                success: function (data) {
+                    alert(data.name);
+                },
+                dataType: "json"
+            })
+        })
+    })
+</script>
+
+</html>
+```
+
+#### 后台代码
+``` java
+@RequestMapping(value = "ajax.do")
+public void AjaxDemo(HttpServletResponse response, Person person) throws IOException {
+	//        1.将数据存入Map中
+	Map<String, Object> map = new HashMap<>();
+	map.put("name", person.getPname());
+	map.put("age", person.getPage());
+
+	//        2.将map转为json
+	String string = JSON.toJSONString(map);
+
+	//        3.将数据返回客户端
+	PrintWriter writer = response.getWriter();
+	writer.write(string);
+	writer.close();
+}
+```
 
 ## 返回Object
+
+一般返回值都是作为模型与视图对象，但是返回的Object类型对象则不是作为模型与视图对象出现，仅仅是在页面显示的数据出现的。
+
+### 导入Jar包
+由于返回Object数据，一般都是讲数据转化为JSON对象后床底给浏览器页面。而这个有Object转换为JSON，是由Jackson工具完成的。所以需要导入Jackson的相关jar包
+![](/assets/images/springMVC/jackson.png)
+
+### 注册注解驱动
+将Object数据转化为JSON数据，需要有http消息转换器HttpMessageConverter完成。当spring容器进行初始化过程中，通过配置就创建了注解驱动，默认创建了7个`HttpMessageConverter`对象。
+``` xml
+<!--注册HttpMessageConverter对象-->
+<mvc:annotation-driven/>
+```
+
+### 返回数值型对象
+修改控制器方法，添加注解`@ResponseBody`
+``` java
+@RequestMapping(value = "returnNumber.do")
+@ResponseBody
+public Object returnNumber() {
+	return 123.456;
+}
+```
+
+修改请求文件
+``` html
+<input type="button" value="Ajax请求" id="button">
+<input type="button" value="返回Object对象类型为数字" id="returnNumber">
+```
+
+``` html
+// 点击按钮发送请求给/test/returnNumber
+$(function () {
+	$("#returnNumber").click(function () {
+		$.ajax({
+			type: "POST",
+			url: "${pageContext.request.contextPath}/test/returnNumber.do",
+			success: function (data) {
+				alert(data);
+			},
+			dataType: "json"
+		})
+	})
+})
+```
+
+### 返回字符串对象
+修改控制器方法，当返回值内包含中文需要注释添加属性prodeces，表示指定字符集，设置输出结果类型。
+``` java
+    @RequestMapping(value = "returnObjectString.do",
+                produces = "test/html;charset=utf-8")
+    @ResponseBody
+    public Object returnString() {
+        return "返回String测试";
+    }
+```
+
+### 返回自定义类型对象
+``` java
+@RequestMapping(value = "returnObject.do")
+@ResponseBody
+public Object returnObject() {
+	Person person = new Person();
+	person.setPname("小明");
+	person.setPage(22);
+	return person;
+}
+```
+
+``` html
+<input type="button" value="Ajax请求" id="button">
+<input type="button" value="返回Object对象类型为数字" id="returnNumber">
+<input type="button" value="返回Object对象类型为字符串" id="returnString">
+<input type="button" value="返回Object对象类型为自定义类型" id="returnObject">
+
+// 点击按钮发送请求给/test/returnObject
+$(function () {
+	$("#returnObject").click(function () {
+		$.ajax({
+			type: "POST",
+			url: "${pageContext.request.contextPath}/test/returnObject.do",
+			success: function (data) {
+				alert(data.pname);
+			},
+			dataType: "json"
+		})
+	})
+});
+```
+### 返回Map集合
+``` java
+@RequestMapping(value = "returnMap.do")
+@ResponseBody
+public Object returnMap() {
+	Person person1 = new Person();
+	person1.setPname("小明");
+	person1.setPage(22);
+
+	Person person2 = new Person();
+	person2.setPname("张三");
+	person2.setPage(23);
+
+	HashMap<String, Person> map = new HashMap<>();
+	map.put("person1",person1);
+	map.put("person2",person2);
+	return map;
+```
+
+``` html
+<input type="button" value="返回Object对象类型为Map集合" id="returnMap">
+
+// 点击按钮发送请求给/test/returnMap
+$(function () {
+	$("#returnMap").click(function () {
+		$.ajax({
+			type: "POST",
+			url: "${pageContext.request.contextPath}/test/returnMap.do",
+			success: function (data) {
+				alert(data.person2.pname);
+			},
+			dataType: "json"
+		})
+	})
+});
+```
+
+### 返回List集合
+``` java
+@RequestMapping(value = "returnList.do")
+@ResponseBody
+public Object returnList() {
+	Person person1 = new Person();
+	person1.setPname("小明");
+	person1.setPage(22);
+
+	Person person2 = new Person();
+	person2.setPname("张三");
+	person2.setPage(23);
+
+	ArrayList<Person> list = new ArrayList<>();
+	list.add(person1);
+	list.add(person2);
+	return list;
+}
+```
+
+``` html
+<input type="button" value="返回Object对象类型为List集合" id="returnList">
+
+// 点击按钮发送请求给/test/returnList
+$(function () {
+	$("#returnList").click(function () {
+		$.ajax({
+			type: "POST",
+			url: "${pageContext.request.contextPath}/test/returnList.do",
+			success: function (data) {
+				alert(data[1].pname + data[0].pname);
+			},
+			dataType: "json"
+		})
+	})
+});
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
