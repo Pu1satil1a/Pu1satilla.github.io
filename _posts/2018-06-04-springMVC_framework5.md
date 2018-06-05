@@ -286,37 +286,279 @@ public class Forward {
 
 该方式只需要在SpringMVC配置文件中注册该异常处理器Bean即可。该Bean比较特殊，没有id属性，无需显式调用或被注入给其它`<bean/>`，当异常发生时会自动执行该类。
 
+### 自定义异常类
+定义三个异常类：NameException、AgeException、PeopleException。其中PeopleException是另外两个异常的父类。
+``` java
+public class PeopleException extends Exception{
+    public PeopleException() {
+    }
+
+    public PeopleException(String message) {
+        super(message);
+    }
+}
+
+public class NameException extends PeopleException{
+    public NameException() {
+    }
+
+    public NameException(String message) {
+        super(message);
+    }
+}
+
+public class AgeException extends PeopleException{
+    public AgeException() {
+    }
+
+    public AgeException(String message) {
+        super(message);
+    }
+}
+```
+
+### 修改Controller
+``` java
+@Controller
+public class ExceptionController {
+    @RequestMapping(value = "/login.do", method = RequestMethod.POST)
+
+    public ModelAndView SimpleExceptionResolver(String name, int age) throws PeopleException {
+
+        ModelAndView mv = new ModelAndView();
+
+        if (!name.equals("翠花")) {
+            throw new NameException("登录名" + name + "错误");
+        }
+        if (age > 50 || age < 10) {
+            throw new AgeException("年龄不符");
+        }
+
+        Person person = new Person();
+        person.setPname(name);
+        person.setPage(age);
+        mv.addObject("person", person);
+
+        mv.setViewName("forward:/exceptionPage/success.jsp");
+        return mv;
+    }
+}
+```
+
+### 注册异常处理器
+
+``` xml
+<!--注册异常类-->
+<bean class="org.springframework.web.servlet.handler.SimpleMappingExceptionResolver">
+
+	<!--
+		属性exceptionMappings：用于指定具体的不同类型的异常所对应的异常响应页面。
+			key为异常类的全限定性类名，value则为响应页面路径
+
+		属性defaultErrorView：对于没有在属性exceptionMapping中指定异常对应页面的
+							 通过该属性指定默认跳转页面
+
+		属性exceptionAttribute：捕获到的异常对象
+							   一般异常响应页面中使用
+	-->
+	<property name="exceptionMappings">
+		<props>
+			<prop key="cn.pu1satilla.Exception.NameException">/exceptionPage/nameError.jsp</prop>
+			<prop key="cn.pu1satilla.Exception.AgeException">/exceptionPage/ageError.jsp</prop>
+		</props>
+	</property>
+
+	<property name="defaultErrorView" value="/exceptionPage/error.jsp"/>
+	<property name="exceptionAttribute" value="ex"/>
+</bean>
+```
+- exceptionMapping: 用于指定具体的不同类型的异常所对应的异常响应页面。Key为异常类的全限定性类名，value则为响应页面路径
+- defaultErrorView: 指定默认的异常响应页面。若发生的异常不是`exceptionMappings`中指定的异常，则使用默认异常响应页面。
+- exceptionAttribute：捕获到的异常对象。一般异常响应页面中使用。
+
+### 定义异常响应页面
+分别建立配置文件中路径文件
+``` html
+<body>
+    ${ex.message}
+</body>
+```
+
+## 自定义异常处理器
+使用`SpringMVC`定义好的`SimpleMappingExceptionResolver`异常处理器，可以实现发生指定异常后的跳转。但若要实现在捕获到指定异常时，执行一些操作的目的，它是完成不了的。此时，就需要自定义异常处理器。自定义异常处理器，需要实现`HandlerExceptionResolver`接口，并且该类需要在`SpringMVC`配置文件中进行注册。
+
+### 定义异常处理器
+当一个类实现了`HandlerExceptionResolver`接口后，只要有异常发生，无论什么异常，都会自动执行接口方法`resolveException()`。
+
+``` java
+public class PersonExceptionResolver implements HandlerExceptionResolver {
 
 
+    @Override
+    public ModelAndView resolveException(HttpServletRequest request, HttpServletResponse response, Object handler, Exception ex) {
 
+        ModelAndView mv = new ModelAndView();
 
+        //        1.将异常数据加入模型
+        mv.addObject("ex", ex);
 
+        //        2.设置默认错误响应页面
+        mv.setViewName("/exceptionPage/error.jsp");
 
+        //        3.如果异常对象是NameException，转发到nameException页面
+        if (ex instanceof NameException) {
+            mv.setViewName("/exceptionPage/nameException.jsp");
+        }
 
+        //        4.如果异常对象是ageException，转发到ageException页面
+        if (ex instanceof AgeException) {
+            mv.setViewName("/exceptionPage/ageException.jsp");
+        }
+        return mv;
+    }
+}
+```
 
+### 注册异常处理器
+``` xml
+<!--注册异常处理器-->
+<bean class="cn.pu1satilla.controller.PersonExceptionResolver"/>
+```
 
+## 异常处理注解
 
+使用注解`@ExceptionHandler`可以将一个方法指定为异常处理方法。
+``` java
+@Controller
+public class ExceptionController {
+    @RequestMapping(value = "/login.do", method = RequestMethod.POST)
 
+    public ModelAndView SimpleExceptionResolver(String name, int age) throws PeopleException {
 
+        ModelAndView mv = new ModelAndView();
 
+        if (!name.equals("翠花")) {
+            throw new NameException("登录名" + name + "错误");
+        }
+        if (age > 50 || age < 10) {
+            throw new AgeException("年龄不符");
+        }
 
+        Person person = new Person();
+        person.setPname(name);
+        person.setPage(age);
+        mv.addObject("person", person);
 
+        mv.setViewName("forward:/exceptionPage/success.jsp");
+        return mv;
+    }
 
+    @ExceptionHandler(PeopleException.class)
+    public ModelAndView handleNameException(Exception ex) {
+        ModelAndView modelAndView = new ModelAndView();
 
+        modelAndView.addObject("ex", ex);
+        modelAndView.setViewName("/exceptionPage/error.jsp");
 
+        return modelAndView;
+    }
+}
+```
 
+不过，一般不这样使用。而是将异常处理方法专门定义在一个Controller中，让其它Controller继承该Controller即可。但是，这种用法的弊端也很明显：Java是“单继承多实现”的，这个Controller的继承将这唯一的一个继承机会使用了，使得若再有其它类需要继承，将无法直接实现。
 
+# 类型转换器
+在前面的程序中，表单提交的无论是int还是double类型的请求参数，用于处理该请求的处理器方法的形参，均可直接接收到相应类型的相应数据，而非接收到String再手工转换。那是因为在SpringMVC框架中，有默认的类型转换器。这些默认的类型转换器，可以将String类型的数据，自动转换为相应类型的数据。
 
+但默认类型转换器并不是可以将用户提交的String，转换为所有用户需要的类型。此时，就需要自定义类型转换器了。例如，在SpringMVC的默认类型转换器中，没有日期类型的转换器，因为日期的格式太多。若要使表单中提交的日期字符串，被处理器方法形参直接接收为`java.util.Date`，则需要自定义类型转换器了。
 
+## 搭建测试环境
 
+注册页面
+``` html
+<%@ page contentType="text/html;charset=UTF-8" language="java" %>
+<html>
+<head>
+    <title>Title</title>
+</head>
+<body>
+<form action="" method="post">
+    用户名：<input type="text" name="name"> <br>
+    生日：<input type="text" name="birthday"><br>
+    <input type="submit" value="注册">
+</form>
+</body>
+</html>
 
+```
 
+控制器
+``` java
+@Controller
+public class RegisterController {
+    @RequestMapping("/register.do")
+    public ModelAndView registerConverter(String name, Date date) {
 
+        ModelAndView modelAndView = new ModelAndView();
 
+        modelAndView.addObject("name", name);
+        modelAndView.addObject("date", date);
+        modelAndView.setViewName("/converter/success.jsp");
 
+        return modelAndView;
+    }
+}
+```
 
+转发页面
+``` html
+<%@ page contentType="text/html;charset=UTF-8" language="java" %>
+<html>
+<head>
+    <title>Title</title>
+</head>
+<body>
+${name} <br>
+${birthday}
+</body>
+</html>
+```
 
+## 自定义类型转换器
+``` java
+public class DateConverter implements Converter<String, Date> {
 
+    @Override
+    public Date convert(String source) {
+
+        Date date = new Date();
+
+        //        判断传入参数值不为空才进行转换
+        if (source != null && !source.equals("")) {
+            SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
+            try {
+                date = dateFormat.parse(source);
+            } catch (ParseException e) {
+                e.printStackTrace();
+            }
+        }
+        return date;
+    }
+}
+```
+
+## 配置类型转换器
+类型转换器定义完毕后，需要在SpringMVC的配置文件中对类型转换进行配置。首先要注册类型转换器，然后再注册一个转换服务Bean。将类型转换器注入给该转换服务Bean。最后由处理器适配器来使用该转换服务Bean。
+
+``` xml
+<!--注册类型转换器-->
+<bean class="cn.pu1satilla.converter.DateConverter" id="dateConverter"/>
+
+<!--注册类型转换服务-->
+<bean class="org.springframework.context.support.ConversionServiceFactoryBean" id="conversionService">
+	<property name="converters" ref="dateConverter"/>
+</bean>
+```
 
 
 
