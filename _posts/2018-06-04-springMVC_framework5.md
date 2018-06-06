@@ -551,18 +551,76 @@ public class DateConverter implements Converter<String, Date> {
 类型转换器定义完毕后，需要在SpringMVC的配置文件中对类型转换进行配置。首先要注册类型转换器，然后再注册一个转换服务Bean。将类型转换器注入给该转换服务Bean。最后由处理器适配器来使用该转换服务Bean。
 
 ``` xml
+<!--注册异常处理器-->
+<!--<bean class="cn.pu1satilla.controller.PersonExceptionResolver"/>-->
+
 <!--注册类型转换器-->
 <bean class="cn.pu1satilla.converter.DateConverter" id="dateConverter"/>
 
 <!--注册类型转换服务-->
 <bean class="org.springframework.context.support.ConversionServiceFactoryBean" id="conversionService">
+	<!--注入属性：单个类型转换器写法-->
 	<property name="converters" ref="dateConverter"/>
+
+	<!--当需要注入多个类型转换器：
+		<property name="converters">
+			<set>
+				<ref bean="dateConverter"/>
+			</set>
+		</property>
+	-->
 </bean>
+
+<!--注册mvc注解驱动-->
+<mvc:annotation-driven conversion-service="conversionService"/>
 ```
 
+## 配置多种日期类型转换器
+使用正则表达式对传入source资源进行判断为哪种日期格式，不同的日期格式对应不同`SimpleDataFormat`对象。
+``` java
+public class DateConverter implements Converter<String, Date> {
 
+    @Override
+    public Date convert(String source) {
 
+        Date date = new Date();
 
+        //        判断传入参数值不为空才进行转换
+        if (source != null && !source.equals("")) {
+            SimpleDateFormat dateFormat = getSimpleDateFormat(source);
+            try {
+                date = dateFormat.parse(source);
+            } catch (ParseException e) {
+                e.printStackTrace();
+            }
+        }
+
+        return date;
+    }
+
+    /**
+     * 传入日期格式，对日期格式进行判断，符合则建该日期格式的SimpleDateFormat对象
+     *
+     * @param source 传入日期格式
+     * @return SimpleDateFormat对象
+     */
+    private SimpleDateFormat getSimpleDateFormat(String source) {
+
+        SimpleDateFormat dateFormat = null;
+        if (Pattern.matches("^\\d{4}-\\d{2}-\\d{2}$", source)) {
+            dateFormat = new SimpleDateFormat("yyyy-MM-dd");
+        } else if (Pattern.matches("^\\d{4}/\\d{2}/\\d{2}$", source)) {
+            dateFormat = new SimpleDateFormat("yyyy/MM/dd");
+        } else if (Pattern.matches("^\\d{4}\\d{2}\\d{2}$", source)) {
+            dateFormat = new SimpleDateFormat("yyyy/MM/dd");
+        }
+        return dateFormat;
+    }
+}
+```
+
+## 数据回显
+当数据转换出现异常，表示用户输入格式有误，这时需要数据回显给用户进行重新输入，可以通过异常进行跳转完成。
 
 
 
