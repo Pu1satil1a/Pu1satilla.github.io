@@ -454,7 +454,7 @@ public class ExceptionController {
     }
 
     @ExceptionHandler(PeopleException.class)
-    public ModelAndView handleNameException(Exception ex) {
+    public ModelAndView handlePeopleException(Exception ex) {
         ModelAndView modelAndView = new ModelAndView();
 
         modelAndView.addObject("ex", ex);
@@ -622,17 +622,146 @@ public class DateConverter implements Converter<String, Date> {
 ## 数据回显
 当数据转换出现异常，表示用户输入格式有误，这时需要数据回显给用户进行重新输入，可以通过异常进行跳转完成。
 
+### 转换器
+当输入格式匹配不上，转换器抛出`TypeMismatchException`
+``` java
+public class DateConverter implements Converter<String, Date> {
+    @Override
+    public Date convert(String source) {
 
+        Date date = new Date();
 
+        //        判断传入参数值不为空才进行转换
+        if (source != null && !source.equals("")) {
+            SimpleDateFormat dateFormat = getSimpleDateFormat(source);
+            try {
+                date = dateFormat.parse(source);
+            } catch (ParseException e) {
+                e.printStackTrace();
+            }
+        }
 
+        return date;
+    }
+	
+    /**
+     * 传入日期格式，对日期格式进行判断，符合则建该日期格式的SimpleDateFormat对象
+     *
+     * @param source 传入日期格式
+     * @return SimpleDateFormat对象
+     */
+    private SimpleDateFormat getSimpleDateFormat(String source) {
 
+        SimpleDateFormat dateFormat = null;
 
+        if (Pattern.matches("^\\d{4}-\\d{2}-\\d{2}$", source)) {
+            dateFormat = new SimpleDateFormat("yyyy-MM-dd");
+        } else if (Pattern.matches("^\\d{4}/\\d{2}/\\d{2}$", source)) {
+            dateFormat = new SimpleDateFormat("yyyy/MM/dd");
+        } else if (Pattern.matches("^\\d{4}\\d{2}\\d{2}$", source)) {
+            dateFormat = new SimpleDateFormat("yyyy/MM/dd");
+        } else {
+            throw new TypeMismatchException("输入日期格式有误", Date.class);
+        }
 
+        return dateFormat;
+    }
+}
+```
 
+### 处理器
+在处理器内通过注解指定异常处理
+``` java
+@Controller
+public class RegisterController {
+    @RequestMapping("/register.do")
+    public ModelAndView registerConverter(String name, Date birthday) {
 
+        ModelAndView modelAndView = new ModelAndView();
 
+        modelAndView.addObject("name", name);
+        modelAndView.addObject("birthday", birthday);
 
+        modelAndView.setViewName("/converter/success.jsp");
+        return modelAndView;
+    }
 
+    @ExceptionHandler(TypeMismatchException.class)
+    public ModelAndView handleTypeMismatchException(Exception ex) {
+        ModelAndView modelAndView = new ModelAndView();
+
+        modelAndView.addObject("ex", ex);
+        modelAndView.setViewName("/converter/regsiter.jsp");
+        return modelAndView;
+    }
+}
+```
+
+### 测试
+打开`localhost:8080/register.do`链接，发现异常信息阅读困难
+![](/assets/images/springMVC/converter.png)
+
+需要对代码进行改进
+
+### 改进
+在异常解析器修改传递参数为方便用户阅读中文：
+``` java
+@Controller
+public class RegisterController {
+    @RequestMapping("/register.do")
+    public ModelAndView registerConverter(String name, Date birthday) {
+
+        ModelAndView modelAndView = new ModelAndView();
+
+        modelAndView.addObject("name", name);
+        modelAndView.addObject("birthday", birthday);
+
+        modelAndView.setViewName("/converter/success.jsp");
+        return modelAndView;
+    }
+
+    @ExceptionHandler(TypeMismatchException.class)
+    public ModelAndView handleTypeMismatchException(Exception ex) {
+        ModelAndView modelAndView = new ModelAndView();
+
+        //        对异常信息进行判断
+        if (ex.getMessage().contains("ConversionFailedException")) {
+            modelAndView.addObject("ex", "日期格式转换失败，请重新输入！！！");
+        }
+        modelAndView.setViewName("/converter/regsiter.jsp");
+        return modelAndView;
+    }
+}
+```
+
+# 数据验证
+
+为了防止用户传入数据不正确导致多方面问题，需要对数据进行验证。输入验证分为客户端验证和服务器端验证，客户端主要通过`JavaScript`进行，而服务器端则主要通过Java代码进行验证。
+
+## 搭建测试环境
+新建一个jsp页面，含有一个提交的表单，具有name跟age两项。
+``` html
+<%@ page contentType="text/html;charset=UTF-8" language="java" %>
+<html>
+<head>
+    <title>Title</title>
+</head>
+<body>
+<form action="${pageContext.request.contextPath}/validator/register.do">
+
+    姓 名：<input type="text" name="pname">${pnameError}<br>
+    年 龄：<input type="text" name="page">${pageError}<br>
+    学校 名： <input type="text" name="school.sname"><br>
+    学校地址：<input type="text" name="school.slocation"><br>
+    <input type="submit" value="注册">
+
+</form>
+</body>
+</html>
+```
+
+导入jar包
+![](/assets/images/springMVC/validator.png)
 
 
 
