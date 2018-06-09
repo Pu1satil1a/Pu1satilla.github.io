@@ -699,7 +699,7 @@ public class RegisterController {
 
 ### 测试
 打开`localhost:8080/register.do`链接，发现异常信息阅读困难
-![](/assets/images/springMVC/converter.png)
+![](/assets/images/SpringMVC/converter.png)
 
 需要对代码进行改进
 
@@ -739,6 +739,122 @@ public class RegisterController {
 为了防止用户传入数据不正确导致多方面问题，需要对数据进行验证。输入验证分为客户端验证和服务器端验证，客户端主要通过`JavaScript`进行，而服务器端则主要通过Java代码进行验证。
 
 ## 搭建测试环境
+
+### 导入jar包
+![](/assets/images/SpringMVC/validator.png)
+[下载地址](/source/springmvc_validator_source)
+
+### 在实体上添加验证注解
+使用的验证器注解均为`javax.validation.constraints`包中的类。在注解的message属性中，可以使用`{属性名}`的方式来引用指定的注解的属性值。
+``` java
+public class Person {
+    @NotEmpty(message = "姓名不能为空")
+    @Size(min = 3, max = 6, message = "姓名长度必须在{min}-{max}之间")
+    private String pname;
+
+    @Min(value = 0, message = "年龄不能小于{value}")
+    @Max(value = 100, message = "年龄不能大于{value}")
+    @NotEmpty(message = "年龄不能为空")
+    private int page;
+
+    private School pschool;
+
+    public School getPschool() {
+        return pschool;
+    }
+
+    public void setPschool(School pschool) {
+        this.pschool = pschool;
+    }
+
+    public String getPname() {
+        return pname;
+    }
+
+    public void setPname(String pname) {
+        this.pname = pname;
+    }
+
+    public int getPage() {
+        return page;
+    }
+
+    public void setPage(int page) {
+        this.page = page;
+    }
+
+    @Override
+    public String toString() {
+        return "Person{" +
+                "pname='" + pname + '\'' +
+                ", page=" + page +
+                ", pschool=" + pschool +
+                '}';
+    }
+}
+```
+`Hibernate Validator`中常用的验证注解介绍：
+
+序号|验证注解|说明
+---- | ---- | ---- | ----
+1|@AssertFalse|验证注解的元素值是false
+2|@AssertTrue|验证注解的元素值是true
+3|@DecimalMax（value=x）|验证注解的元素值小于等于指定的十进制value值
+4|@DecimalMin（value=x）|验证注解的元素值大于等于指定的十进制value值
+5|@Digits(integer=整数位数, fraction=小数位数)|验证注解的元素值的整数位数和小数位数上限
+6|@Future|验证注解的元素值（日期类型）比当前时间晚
+7|@Max（value=x）|验证注解的元素值小于等于指定的value值
+8|@Min（value=x）|验证注解的元素值大于等于指定的value值
+9|@NotNull|验证注解的元素值丌是null
+10|@Null|验证注解的元素值是null
+11|@Past|验证注解的元素值（日期类型）比当前时间早
+12|@Pattern(regex=正则表达式)|验证注解的元素值不指定的正则表达式匹配
+13|@Size(min=最小值, max=最大值)|验证注解的元素值的在min和max（包含）指定区间之内，如字符长度、集合大小
+14|@Valid|验证关联的对象，如账户对象里有一个订单对象，指定验证订单对象
+15|@NotEmpty|验证注解的元素值丌为null且丌为空（字符串长度丌为0、集合大小丌为0）
+16|@Range(min=最小值, max=最大值)|验证注解的元素值在最小值和最大值之间
+17|@NotBlank|验证注解的元素值丌为空（丌为null、去除首位空格后长度为0），丌同于@NotEmpty，@NotBlank只应用于字符串且在比较时会去除字符串的空格
+18|@Length(min=下限, max=上限)|验证注解的元素值长度在min和max区间内
+19|@Email|验证注解的元素值是Email，也可以通过正则表达式和flag指定自定义的email格式
+
+### 控制器
+当验证出现问题需要将错误信息携带到注册页面进行显示，要求重新输入，没有问题则顺利通过。
+``` java
+@Controller
+public class RegisterValidatorController {
+
+    @RequestMapping("/validator/register.do")
+    public ModelAndView registerValidator(@Validated Person person, BindingResult bindingResult) {
+
+        ModelAndView modelAndView = new ModelAndView();
+
+        //        如果验证错误结果个数>0，传入验证结果，并且返回注册页面，重新注册
+        List<ObjectError> allErrors = bindingResult.getAllErrors();
+
+        if (allErrors.size() > 0) {
+            FieldError pname = bindingResult.getFieldError("pname");
+            FieldError page = bindingResult.getFieldError("page");
+
+            if (pname != null) {
+                //                传入名称错误信息到模型
+                modelAndView.addObject("pnameError", pname.getDefaultMessage());
+            }
+            if (page != null) {
+                //                传入年龄错误信息到模型
+                modelAndView.addObject("pageError", page.getDefaultMessage());
+            }
+            modelAndView.setViewName("/validator/register.jsp");
+        } else {
+            //        否则跳到成功页面
+            modelAndView.addObject("person", person);
+            modelAndView.setViewName("/validator/success.jsp");
+        }
+        return modelAndView;
+    }
+}
+```
+
+### 前台文件
 新建一个jsp页面，含有一个提交的表单，具有name跟age两项。
 ``` html
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
@@ -760,15 +876,84 @@ public class RegisterController {
 </html>
 ```
 
-导入jar包
-![](/assets/images/springMVC/validator.png)
+# 文件上传
 
+## 导入jar包
+[jar包下载地址](/source/upLoad_resource)
 
+## 定义上传页面
+``` html
+<%@ page contentType="text/html;charset=UTF-8" language="java" %>
+<html>
+<head>
+    <title>Title</title>
+</head>
+<body>
+<%--必须指定enctype类型，不然spring无法识别--%>
+<form action="/upLoad/upLoad.do" method="post" enctype="multipart/form-data">
+    照片：<input type="file" name="photo"/> <br>
+    <input type="submit" value="上传">
+</form>
+</body>
+</html>
+```
+**注意：enctype类型必须指定，否则spring无法识别请求是否需要上传文件**
 
+## 定义处理器
+``` java
+@Controller
+@RequestMapping("/upLoad")
+public class UpLoadController {
 
+    /**
+     * 演示spring上传文件，以图片格式文件作为上传例子
+     *
+     * @param photo 上传文件参数
+     * @param request
+     * @return
+     */
+    @RequestMapping(value = "/upLoad.do", method = RequestMethod.POST)
+    public ModelAndView upLoad(MultipartFile photo, HttpServletRequest request) throws IOException {
 
+        //        获取文件原始名称
+        String photoName = photo.getOriginalFilename();
+        //        获取存储路径
+        String realPath = request.getServletContext().getRealPath("/images");
+        //        判断文件是否为图片（.jpg|.png）格式
+        if (photoName.endsWith(".jpg") || photoName.endsWith(".png")) {
+            File file = new File(realPath, photoName);
+            photo.transferTo(file);
+        } else {
+            return new ModelAndView("/upLoad/fail.jsp");
+        }
+        return new ModelAndView("/upLoad/success.jsp");
+    }
+}
+```
 
+## 配置文件类型处理器
+``` java
+<!--注册组件扫描器-->
+<context:component-scan base-package="cn.pu1satilla.*"/>
 
+<!--注册springmvc注解驱动-->
+<mvc:annotation-driven/>
+
+<!--
+	注册multipart解析器，这个id名字固定，是由DispatcherServlet直接调用的
+		属性：defaultEncoding ========= 默认编码格式
+		maxUploadSizePerFile ========= 每个上传文件大小
+-->
+<bean id="multipartResolver" class="org.springframework.web.multipart.commons.CommonsMultipartResolver">
+	<property name="defaultEncoding" value="utf-8"/>
+	<property name="maxUploadSizePerFile" value="1048576"/>
+</bean>
+```
+
+## 出现的问题
+- 在文件夹为空时，idea不能发布空文件到到项目包里，可以通过在空文件夹内新建一个无用文件解决。
+
+# 拦截器
 
 
 
