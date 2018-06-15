@@ -206,7 +206,7 @@ aspect（切面）：切入点+通知
 ## AOP配置（XML）
 
 ### 导包
-![](/assets/images/Spring/aop_configuration.PNG)
+![](/assets/images/Spring/aopConfiguration.png)
 
 ### 目标对象类
 ``` java
